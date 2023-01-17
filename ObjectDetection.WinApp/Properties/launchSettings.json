@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "ObjectDetection.WinApp (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "ObjectDetection.WinApp (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

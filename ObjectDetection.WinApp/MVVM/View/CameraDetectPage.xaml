@@ -1,0 +1,84 @@
+<Page
+    x:Class="ObjectDetection.WinApp.MVVM.View.CameraDetectPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Unloaded="Page_Unloaded">
+
+    <Grid>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"></RowDefinition>
+            <RowDefinition></RowDefinition>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="15" Padding="15,0,15,0">
+
+            <Button HorizontalAlignment="Left" VerticalAlignment="Center"
+                    ToolTipService.ToolTip="select camera"
+                    Command="{x:Bind ViewModel.SelectCamera}">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE960;"/>
+            </Button>
+
+            <!--<Button HorizontalAlignment="Left" VerticalAlignment="Center"
+                    ToolTipService.ToolTip="start camera preview"
+                    Command="{x:Bind ViewModel.StartCameraPreview}">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE768;"/>
+            </Button>
+
+            <Button HorizontalAlignment="Left" VerticalAlignment="Center" 
+                    ToolTipService.ToolTip="stop camera preview"
+                    Command="{x:Bind ViewModel.StopCameraPreview}">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE769;"/>
+            </Button>-->
+
+            <Button HorizontalAlignment="Left" VerticalAlignment="Center"  
+                    ToolTipService.ToolTip="open cache folder"
+                    Command="{x:Bind ViewModel.OpenLocalCacheFolder}">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEC25;"/>
+            </Button>
+
+
+            <CheckBox IsChecked="{x:Bind ViewModel.IsDetectChecked,Mode=TwoWay}" Content="Is detect"/>
+
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" ZoomMode="Enabled" MinZoomFactor="1" MaxZoomFactor="5">
+
+            <StackPanel Orientation="Vertical" Spacing="15">
+
+                <Grid Padding="15">
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"></ColumnDefinition>
+                        <ColumnDefinition></ColumnDefinition>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="480"></RowDefinition>
+                    </Grid.RowDefinitions>
+
+                    <Image Grid.Column="0" Grid.Row="0" Stretch="Uniform" 
+                           Source="{x:Bind ViewModel.CameraImage, Mode=OneWay}"
+                           Width="640" Height="480" />
+
+                    <TextBox Grid.Column="1" Grid.Row="0" Text="{x:Bind ViewModel.ActivityLog, Mode=OneWay}" FontSize="12" 
+                             AcceptsReturn="True" TextWrapping="Wrap" Header="Activity Log"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto" VerticalAlignment="Stretch"/>
+
+                </Grid>
+
+            </StackPanel>
+
+        </ScrollViewer>
+
+
+    </Grid>
+
+</Page>
