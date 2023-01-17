@@ -12,6 +12,7 @@ using Microsoft.ML;
 using System.IO;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
+using SkiaSharp;
 
 namespace ObjectDetection.WinApp.Services
 {
@@ -148,7 +149,7 @@ namespace ObjectDetection.WinApp.Services
             return image;
         }
 
-        public async Task<BitmapImage> RenderProbabilityAsync(List<YoloV4Result> probability, SoftwareBitmap softwareBitmap)
+        public async Task<SoftwareBitmap> RenderProbabilityAsync(List<YoloV4Result> probability, SoftwareBitmap softwareBitmap)
         {
             var width = softwareBitmap.PixelWidth;
             var height = softwareBitmap.PixelHeight;
@@ -197,13 +198,39 @@ namespace ObjectDetection.WinApp.Services
             stream.Seek(0);
             await offscreen.SaveAsync(stream, CanvasBitmapFileFormat.Jpeg);
 
-            BitmapImage image = new();
-            image.SetSource(stream);
+            #region return SoftwareBitmap
+
+            BitmapDecoder decoder = await BitmapDecoder.CreateAsync(stream);
+            SoftwareBitmap sb = await decoder.GetSoftwareBitmapAsync();
+            SoftwareBitmap result = SoftwareBitmap.Convert(sb, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore);
+
+            #endregion return SoftwareBitmap
+
+            #region return BitmapImage
+
+            //BitmapImage result = new();
+            //result.SetSource(stream);
+
+            #endregion return BitmapImage
+
+            #region test save
+
+            //StorageFile savedImage = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync($"test_pred.jpg", CreationCollisionOption.GenerateUniqueName);
+            //using IRandomAccessStream stream2 = await savedImage.OpenAsync(FileAccessMode.ReadWrite);
+            //BitmapEncoder encoder1 = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, stream2);
+            ////var decoder1 = await BitmapDecoder.CreateAsync(stream);
+            ////var softBitmap = await decoder1.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+            ////SoftwareBitmap softBitmap2 = SoftwareBitmap.Convert(softBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore);
+            //encoder1.SetSoftwareBitmap(result);
+            //await encoder1.FlushAsync();
+            //stream2.Dispose();
+
+            #endregion test save
 
             cbi.Dispose();
             stream.Dispose();
 
-            return image;
+            return result;
         }
 
     }

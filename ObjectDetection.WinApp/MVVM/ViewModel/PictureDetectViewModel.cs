@@ -37,6 +37,8 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
 
         private ImageSource _imagePrew;
         public ImageSource ImagePrew { get => _imagePrew; set => SetProperty(ref _imagePrew, value); }
+        SoftwareBitmapSource ImagePrewSBSource = new();
+        SoftwareBitmap ImagePrewSB = null;
 
         private StorageFile SavedImage;
 
@@ -117,48 +119,23 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
 
                 var outputFile = await fileSavePicker.PickSaveFileAsync();
 
-                if (outputFile != null)
+                if (outputFile != null && ImagePrewSB != null)
                 {
 
                     using IRandomAccessStream stream = await outputFile.OpenAsync(FileAccessMode.ReadWrite);
-                    //BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, stream);
+                    BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, stream);
+                    encoder.SetSoftwareBitmap(ImagePrewSB);
 
+                    try
+                    {
+                        await encoder.FlushAsync();
+                    }
+                    catch (Exception err)
+                    {
+                       
+                    }
 
-
-                    // BitmapDecoder decoder = await BitmapDecoder.CreateAsync(;
-
-                    // BitmapImage bit = ImagePrew as BitmapImage;
-
-                    //bit.
-
-                    // Stream pixelStream = bit..PixelBuffer.AsStream();
-
-                    // encoder.SetSoftwareBitmap(bit);
-                    // await encoder.FlushAsync();
-
-                    // stream.Dispose();
-
-
-
-
-                    //using IRandomAccessStream stream2 = await outputFile.OpenAsync(FileAccessMode.ReadWrite);
-                    //BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, stream2);
-                    //var decoder = await BitmapDecoder.CreateAsync(stream);
-                    //var softBitmap = await decoder.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
-                    //encoder.SetSoftwareBitmap(softBitmap);
-                    //await encoder.FlushAsync();
-                    //stream2.Dispose();
-
-
-                    //DisplayInformation display = DisplayInformation.GetForCurrentView();
-                    //var renderTargetBitmap = new RenderTargetBitmap();
-                    //await renderTargetBitmap.RenderAsync(ImagePrew, (int)frameSource.FrameWidth, (int)frameSource.FrameHeight);
-
-                    //IBuffer pixels = await renderTargetBitmap.GetPixelsAsync();
-                    //byte[] bytes = pixels.ToArray();
-
-
-
+                    stream.Dispose();
 
                 }
                 else
@@ -215,7 +192,9 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
                 {
                     DetectInProgress = false;
                     var bitmap = await _yolo4Service.RenderProbabilityAsync(probability, targetSoftwareBitmap);
-                    ImagePrew = bitmap;
+                    ImagePrewSB = bitmap;
+                    await ImagePrewSBSource.SetBitmapAsync(bitmap);
+                    ImagePrew = ImagePrewSBSource;
                 });
 
                 #endregion draw probability

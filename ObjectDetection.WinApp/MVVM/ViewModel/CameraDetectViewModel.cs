@@ -204,7 +204,8 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
                                 {
                                     var probability = _yoloOutputParser.ParseOutputs(predict);
                                     var bitmap = await _yolo4Service.RenderProbabilityAsync(probability, targetSoftwareBitmap);
-                                    CameraImage = bitmap;
+                                    await CameraImageSource.SetBitmapAsync(bitmap);
+                                    CameraImage = CameraImageSource;
                                 }
                                 else
                                 {

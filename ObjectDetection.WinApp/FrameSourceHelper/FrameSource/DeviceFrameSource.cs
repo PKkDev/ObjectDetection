@@ -150,7 +150,6 @@ namespace ObjectDetection.WinApp.FrameSourceHelper.FrameSource
                 throw new Exception("No preview or record stream available");
             }
 
-
             int preferredFrameWidth = 1920;
             int preferredFrameHeight = 1080;
             string preferredMediaEncodingSubtype = MediaEncodingSubtypes.Argb32;

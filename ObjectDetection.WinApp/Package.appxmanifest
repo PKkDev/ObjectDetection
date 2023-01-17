@@ -39,17 +39,6 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
-      <Extensions>
-        <uap:Extension Category="windows.fileTypeAssociation">
-          <uap:FileTypeAssociation Name="ssss" DesiredView="default">
-            <uap:SupportedFileTypes>
-              <uap:FileType>.jpg</uap:FileType>
-            </uap:SupportedFileTypes>
-            <uap:InfoTip>aaaa</uap:InfoTip>
-            <uap:DisplayName>dddd</uap:DisplayName>
-          </uap:FileTypeAssociation>
-        </uap:Extension>
-      </Extensions>
     </Application>
   </Applications>
 
