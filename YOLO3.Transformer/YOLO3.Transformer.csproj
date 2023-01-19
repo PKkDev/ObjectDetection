@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="Model\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML" Version="3.0.0-preview.22621.2" />
+    <PackageReference Include="Microsoft.ML.ImageAnalytics" Version="3.0.0-preview.22621.2" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.13.1" />
+    <PackageReference Include="Microsoft.ML.OnnxTransformer" Version="3.0.0-preview.22621.2" />
+    <PackageReference Include="System.Drawing.Common" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\YOLO3.Shared\YOLO3.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Model\tiny-yolov3-11.onnx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Model\yolov3-12-int8.onnx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Model\yolov3-12.onnx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
