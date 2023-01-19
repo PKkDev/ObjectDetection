@@ -1,5 +1,4 @@
-﻿using Google.Protobuf.WellKnownTypes;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -7,8 +6,6 @@ using ObjectDetection.WinApp.MVVM.View;
 using ObjectDetection.WinApp.MVVM.ViewModel;
 using ObjectDetection.WinApp.Services;
 using System;
-using System.Runtime.InteropServices;
-using System.Security;
 
 namespace ObjectDetection.WinApp
 {

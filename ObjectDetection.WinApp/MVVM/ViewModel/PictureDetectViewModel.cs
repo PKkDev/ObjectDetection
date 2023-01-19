@@ -112,8 +112,6 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
                 fileSavePicker.FileTypeChoices.Add("JPEG files", new List<string>() { ".jpg" });
                 fileSavePicker.SuggestedFileName = "image";
 
-                // Get the current window's HWND by passing in the Window object
-                // Associate the HWND with the file picker
                 var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
                 WinRT.Interop.InitializeWithWindow.Initialize(fileSavePicker, hwnd);
 
@@ -121,7 +119,6 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
 
                 if (outputFile != null && ImagePrewSB != null)
                 {
-
                     using IRandomAccessStream stream = await outputFile.OpenAsync(FileAccessMode.ReadWrite);
                     BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, stream);
                     encoder.SetSoftwareBitmap(ImagePrewSB);
@@ -132,7 +129,7 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
                     }
                     catch (Exception err)
                     {
-                       
+
                     }
 
                     stream.Dispose();
