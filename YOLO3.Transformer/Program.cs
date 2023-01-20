@@ -67,7 +67,9 @@ try
                 "yolonms_layer_1/concat_2:0"
             },
             modelFile: modelLocation,
-            recursionLimit: 100));
+            recursionLimit: 100,
+            gpuDeviceId: 1,
+            fallbackToCpu: false));
 
     #endregion pipeline
 
