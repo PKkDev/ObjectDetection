@@ -56,6 +56,7 @@ namespace ObjectDetection.WinApp
                 services.AddTransient<NavigationHelperService>();
 
                 services.AddSingleton<Yolo4Service>();
+                services.AddSingleton<Yolo3Service>();
             })
             .Build();
 

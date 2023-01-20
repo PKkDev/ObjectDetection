@@ -12,6 +12,7 @@
     <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
   <ItemGroup>
+    <Content Remove="Assets\YoloModel\modelYolo312int8Path.zip" />
     <Content Remove="Assets\YoloModel\modelYolo4Path.zip" />
   </ItemGroup>
   <ItemGroup>
@@ -53,6 +54,7 @@
     <ProjectCapability Include="Msix" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\YOLO3.Shared\YOLO3.Shared.csproj" />
     <ProjectReference Include="..\YOLO4.Shared\YOLO4.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>
@@ -76,6 +78,9 @@
     <Folder Include="MVVM\Model\" />
   </ItemGroup>
   <ItemGroup>
+    <None Update="Assets\YoloModel\modelYolo312int8Path.zip">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Assets\YoloModel\modelYolo4Path.zip">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

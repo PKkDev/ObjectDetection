@@ -11,7 +11,7 @@ using System.IO;
 
 MLContext mlContext = new MLContext();
 OnnxModelScorer onnxModel = new(mlContext);
-YoloOutputParser parser = new YoloOutputParser();
+Yolo4OutputParser parser = new Yolo4OutputParser();
 
 try
 {

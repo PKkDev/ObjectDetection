@@ -7,7 +7,7 @@ using YOLO4.Shared.Settings;
 
 namespace YOLO4.Shared.Parser
 {
-    public class YoloOutputParser
+    public class Yolo4OutputParser
     {
         private readonly string[] categories = new string[] {
             "person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",

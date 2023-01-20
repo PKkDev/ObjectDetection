@@ -1,15 +1,16 @@
 ﻿using Microsoft.ML;
 using Microsoft.ML.Data;
-using Microsoft.ML.Transforms.Image;
 using Microsoft.ML.Transforms.Onnx;
 using System.Drawing;
 using YOLO3.Shared.DataStructures;
+using YOLO3.Shared.Parser;
 using YOLO3.Shared.Settings;
 using static Microsoft.ML.Transforms.Image.ImageResizingEstimator;
-using static System.Net.Mime.MediaTypeNames;
 
 MLContext mlContext = new();
 ITransformer? model = null;
+
+Yolo3OutputParser outputParser = new();
 
 try
 {
@@ -79,9 +80,26 @@ try
     Yolo3InputData image = new() { ImagePath = imagePath, };
     Yolo3OutputData predict = predictionEngine.Predict(image);
 
-    var probability = GetResults(predict, Yolo3NetSettings.Categories);
+    var probability = outputParser.ParseOutputs(predict);
 
     DrawTest(imagePath, probability.ToList());
+
+
+    #region save model
+
+    var relativePath = @"../../../Model";
+    FileInfo _dataRoot = new FileInfo(typeof(Program).Assembly.Location);
+    string assemblyFolderPath = _dataRoot.Directory.FullName;
+    string pathToSave = Path.Combine(assemblyFolderPath, relativePath);
+
+
+    var modelNmae = "modelYolo312int8Path.zip";
+    var fullPathToSave = Path.Combine(pathToSave, modelNmae);
+
+    IDataView data = mlContext.Data.LoadFromEnumerable(new List<Yolo3InputData>());
+    mlContext.Model.Save(model, data.Schema, fullPathToSave);
+
+    #endregion save model
 
 }
 catch (Exception e)
@@ -93,44 +111,7 @@ finally
     Console.ReadKey();
 }
 
-static IReadOnlyList<Yolo3Result> GetResults(Yolo3OutputData prediction, string[] categories)
-{
-    if (prediction.Concat == null || prediction.Concat.Length == 0)
-        return new List<Yolo3Result>();
 
-    //if (prediction.Boxes.Length != Yolo3OutputData.YoloV3BboxPredictionCount * 4)
-    //    throw new ArgumentException();
-
-    //if (prediction.Scores.Length != Yolo3OutputData.YoloV3BboxPredictionCount * categories.Length)
-    //    throw new ArgumentException();
-
-    List<Yolo3Result> results = new List<Yolo3Result>();
-
-    // Concat size is 'nbox'x3 (batch_index, class_index, box_index)
-    int resulstCount = prediction.Concat.Length / 3;
-    for (int c = 0; c < resulstCount; c++)
-    {
-        var res = prediction.Concat.Skip(c * 3).Take(3).ToArray();
-
-        var batch_index = res[0];
-        var class_index = res[1];
-        var box_index = res[2];
-
-        var label = categories[class_index];
-        var bbox = new float[]
-        {
-            prediction.Boxes[box_index * 4],
-            prediction.Boxes[box_index * 4 + 1],
-            prediction.Boxes[box_index * 4 + 2],
-            prediction.Boxes[box_index * 4 + 3],
-        };
-        var score = prediction.Scores[box_index + class_index * Yolo3OutputData.YoloV3BboxPredictionCount];
-
-        results.Add(new Yolo3Result(bbox, label, score));
-    }
-
-    return results;
-}
 
 static void DrawTest(string imagePath, List<Yolo3Result> probability)
 {

@@ -41,7 +41,7 @@ namespace ObjectDetection.WinApp.MVVM.View
 
 
         private Yolo4Service yolo4Service { get; set; }
-        private YoloOutputParser outputParser = new();
+        private Yolo4OutputParser outputParser = new();
 
         public DetectPage()
         {

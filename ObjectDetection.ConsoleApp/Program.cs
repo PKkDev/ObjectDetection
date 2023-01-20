@@ -6,7 +6,7 @@ using YOLO4.Shared.Parser;
 using YOLO4.Shared.Settings;
 
 MLContext mlContext = new();
-YoloOutputParser parser = new YoloOutputParser();
+Yolo4OutputParser parser = new Yolo4OutputParser();
 
 try
 {

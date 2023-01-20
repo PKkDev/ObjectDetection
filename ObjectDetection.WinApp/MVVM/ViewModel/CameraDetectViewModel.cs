@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using ObjectDetection.WinApp.FrameSourceHelper;
 using ObjectDetection.WinApp.Services;
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -13,6 +14,8 @@ using Windows.Graphics.Imaging;
 using Windows.Media;
 using Windows.Storage;
 using Windows.System;
+using YOLO3.Shared.DataStructures;
+using YOLO3.Shared.Parser;
 using YOLO4.Shared.DataStructures;
 using YOLO4.Shared.Parser;
 
@@ -37,8 +40,8 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
         private string _activityLog;
         public string ActivityLog { get => _activityLog; set => SetProperty(ref _activityLog, value); }
 
-        private readonly YoloOutputParser _yoloOutputParser;
-        private readonly Yolo4Service _yolo4Service;
+        private readonly Yolo3OutputParser _yoloOutputParser;
+        private readonly Yolo3Service _yoloService;
 
         //private MediaCapture mediaCaptureManager;
         //private MediaFrameReader mediaFrameReader;
@@ -54,11 +57,11 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
 
         SoftwareBitmapSource CameraImageSource;
 
-        public CameraDetectViewModel(Yolo4Service yolo4Service)
+        public CameraDetectViewModel(Yolo3Service yolo4Service)
         {
             CameraImageSource = new SoftwareBitmapSource();
 
-            _yolo4Service = yolo4Service;
+            _yoloService = yolo4Service;
             _yoloOutputParser = new();
 
             //StartCameraPreview = new RelayCommand(() =>
@@ -190,9 +193,9 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
 
                         #region get probability
 
-                        YoloV4OutputData predict = null;
+                        Yolo3OutputData predict = null;
                         if (IsDetectChecked)
-                            predict = await _yolo4Service.PredictAsync(targetSoftwareBitmap);
+                            predict = await _yoloService.PredictAsync(targetSoftwareBitmap);
 
                         #endregion get probability
 
@@ -203,7 +206,7 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
                                 if (IsDetectChecked && predict != null)
                                 {
                                     var probability = _yoloOutputParser.ParseOutputs(predict);
-                                    var bitmap = await _yolo4Service.RenderProbabilityAsync(probability, targetSoftwareBitmap);
+                                    var bitmap = await _yoloService.RenderProbabilityAsync(probability.ToList(), targetSoftwareBitmap);
                                     await CameraImageSource.SetBitmapAsync(bitmap);
                                     CameraImage = CameraImageSource;
                                 }

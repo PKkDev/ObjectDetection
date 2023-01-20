@@ -9,6 +9,7 @@ using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -20,6 +21,7 @@ using Windows.Storage.FileProperties;
 using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
 using Windows.System;
+using YOLO3.Shared.Parser;
 using YOLO4.Shared.Parser;
 using static System.Net.WebRequestMethods;
 
@@ -42,14 +44,14 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
 
         private StorageFile SavedImage;
 
-        private readonly YoloOutputParser _yoloOutputParser;
-        private readonly Yolo4Service _yolo4Service;
+        private readonly Yolo3OutputParser _yoloOutputParser;
+        private readonly Yolo3Service _yoloService;
 
         private IFrameSource frameSource { get; set; }
 
-        public PictureDetectViewModel(Yolo4Service yolo4Service)
+        public PictureDetectViewModel(Yolo3Service yoloService)
         {
-            _yolo4Service = yolo4Service;
+            _yoloService = yoloService;
             _yoloOutputParser = new();
 
             //ImagePrew = new BitmapImage(new Uri("https://warlu.com/wp-content/uploads/08-Warlukurlangu-Dog-program-1-CROPPED-1.jpg"));
@@ -178,7 +180,7 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
 
                 #region get probability
 
-                var predict = await _yolo4Service.PredictAsync(targetSoftwareBitmap);
+                var predict = await _yoloService.PredictAsync(targetSoftwareBitmap);
                 var probability = _yoloOutputParser.ParseOutputs(predict);
 
                 #endregion get probability
@@ -188,7 +190,7 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
                 App.MainWindow.DispatcherQueue.TryEnqueue(async () =>
                 {
                     DetectInProgress = false;
-                    var bitmap = await _yolo4Service.RenderProbabilityAsync(probability, targetSoftwareBitmap);
+                    var bitmap = await _yoloService.RenderProbabilityAsync(probability.ToList(), targetSoftwareBitmap);
                     ImagePrewSB = bitmap;
                     await ImagePrewSBSource.SetBitmapAsync(bitmap);
                     ImagePrew = ImagePrewSBSource;

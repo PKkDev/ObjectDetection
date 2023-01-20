@@ -5,10 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Parser\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.ML" Version="3.0.0-preview.22621.2" />
     <PackageReference Include="Microsoft.ML.ImageAnalytics" Version="3.0.0-preview.22621.2" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.13.1" />
