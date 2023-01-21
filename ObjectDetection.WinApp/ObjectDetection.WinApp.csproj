@@ -17,7 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Remove="MVVM\View\CameraDetectPage.xaml" />
-    <None Remove="MVVM\View\DetectPage.xaml" />
     <None Remove="MVVM\View\PictureDetectPage.xaml" />
     <None Remove="MVVM\View\SettingsPage.xaml" />
     <None Remove="MVVM\View\ShellPage.xaml" />
@@ -58,9 +57,6 @@
     <ProjectReference Include="..\YOLO4.Shared\YOLO4.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Page Update="MVVM\View\DetectPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Update="MVVM\View\CameraDetectPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -51,8 +51,6 @@ namespace ObjectDetection.WinApp
                 services.AddTransient<CameraDetectViewModel>();
                 services.AddTransient<CameraDetectPage>();
 
-                services.AddTransient<DetectPage>();
-
                 services.AddTransient<NavigationHelperService>();
 
                 services.AddSingleton<Yolo4Service>();
