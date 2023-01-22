@@ -27,7 +27,7 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Tag="Detect" Content="main detect">
+                <NavigationViewItem Tag="ScreenCast" Content="screen cast">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE722;"/>
                     </NavigationViewItem.Icon>

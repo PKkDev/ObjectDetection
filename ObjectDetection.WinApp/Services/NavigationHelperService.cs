@@ -16,7 +16,8 @@ namespace ObjectDetection.WinApp.Services
         {
             { "Settings", typeof(SettingsPage) },
             { "PictureDetect", typeof(PictureDetectPage) },
-            { "CameraDetect", typeof(CameraDetectPage) }
+            { "CameraDetect", typeof(CameraDetectPage) },
+            { "ScreenCast", typeof(ScreenCastPage) }
         };
 
         public NavigationHelperService() { }
@@ -24,7 +25,7 @@ namespace ObjectDetection.WinApp.Services
         public void Initialize(NavigationView navigationView, Frame contentFrame)
         {
             NavigationView = navigationView;
-            ContentFrame = contentFrame;
+            ContentFrame = contentFrame; 
 
             NavigationView.BackRequested += OnBackRequested;
             NavigationView.ItemInvoked += OnItemInvoked;

@@ -27,7 +27,7 @@ using static System.Net.WebRequestMethods;
 
 namespace ObjectDetection.WinApp.MVVM.ViewModel
 {
-    public class PictureDetectViewModel : ObservableObject
+    public class PictureDetectViewModel : ObservableRecipient
     {
         public ICommand SelectImage { get; set; }
         public ICommand DetectOnImage { get; set; }

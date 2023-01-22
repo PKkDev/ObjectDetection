@@ -4,7 +4,8 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  xmlns:uap6="http://schemas.microsoft.com/appx/manifest/uap/windows10/6"
+  IgnorableNamespaces="uap rescap uap6">
 
   <Identity
     Name="cd6f9324-2708-4e21-a68c-1e9d8f45af90"
@@ -44,6 +45,7 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <uap6:Capability Name="graphicsCapture"/>
     <DeviceCapability Name="webcam"/>
     <DeviceCapability Name="microphone"/>
   </Capabilities>
