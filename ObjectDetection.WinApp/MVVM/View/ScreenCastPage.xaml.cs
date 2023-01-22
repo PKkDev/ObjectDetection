@@ -4,7 +4,6 @@ using ObjectDetection.WinApp.MVVM.ViewModel;
 using ObjectDetection.WinApp.DirectXCaptureEncoder;
 
 using Windows.Graphics.Capture;
-using Windows.Graphics.DirectX.Direct3D11;
 using Windows.Media.MediaProperties;
 using Windows.UI.Popups;
 using System.Collections.Generic;
@@ -18,7 +17,10 @@ using System;
 
 //using Windows.UI.Composition;
 using Microsoft.UI.Composition;
-using Windows.Devices.Enumeration;
+using Microsoft.Graphics.Canvas;
+using Windows.Graphics.DirectX;
+using Microsoft.Graphics.Canvas.UI.Composition;
+using Microsoft.UI;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -46,7 +48,8 @@ namespace ObjectDetection.WinApp.MVVM.View
     {
         public ScreenCastViewModel ViewModel { get; set; }
 
-        private IDirect3DDevice _device;
+        // private IDirect3DDevice _device;
+        private CanvasDevice _device;
 
         private List<ResolutionItem> _resolutions;
         private List<BitrateItem> _bitrates;
@@ -93,7 +96,22 @@ namespace ObjectDetection.WinApp.MVVM.View
             _previewVisual.Shadow = shadow;
             ElementCompositionPreview.SetElementChildVisual(CapturePreviewGrid, _previewVisual);
 
-            _device = D3DDeviceManager.Device;
+            //_device = D3DDeviceManager.Device;
+            _device = new CanvasDevice();
+
+            _compositionGraphicsDevice = CanvasComposition.CreateCompositionGraphicsDevice(
+                App.MainWindow.Compositor,
+                _device);
+
+            _surface = _compositionGraphicsDevice.CreateDrawingSurface(
+                new Windows.Foundation.Size(400, 400),
+                Microsoft.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized,
+                Microsoft.Graphics.DirectX.DirectXAlphaMode.Premultiplied);
+
+
+
+
+
 
             var settings = GetCachedSettings();
 
@@ -282,25 +300,74 @@ namespace ObjectDetection.WinApp.MVVM.View
             }
         }
 
+        private Direct3D11CaptureFramePool _framePool;
+        private CanvasBitmap _currentFrame;
+        private CompositionDrawingSurface _surface;
+        private CompositionGraphicsDevice _compositionGraphicsDevice;
+        private GraphicsCaptureSession _session;
+
         private void StartPreview(GraphicsCaptureItem item)
         {
-            PreviewContainerGrid.RowDefinitions[1].Height = new GridLength(2, GridUnitType.Star);
-            CapturePreviewGrid.Visibility = Visibility.Visible;
-            CaptureInfoTextBlock.Text = item.DisplayName;
 
-            var compositor = App.MainWindow.Compositor;
-            _preview?.Dispose();
-            _preview = new CapturePreview(_device, item);
-            var surface = _preview.CreateSurface(compositor);
-            _previewBrush.Surface = surface;
-            _preview.StartCapture();
-            var includeCursor = GetIncludeCursor();
-            if (!includeCursor)
+
+            _framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
+                      _device,
+                      DirectXPixelFormat.B8G8R8A8UIntNormalized,
+                      2,
+                      item.Size);
+            _framePool.FrameArrived += (sender, e) =>
             {
-                _preview.IsCursorCaptureEnabled = includeCursor;
-            }
+                using (var frame = _framePool.TryGetNextFrame())
+                {
+                    ProcessFrame(frame);
+                }
+            };
+
+            _session = _framePool.CreateCaptureSession(item);
+            _session.StartCapture();
+
+
+            //PreviewContainerGrid.RowDefinitions[1].Height = new GridLength(2, GridUnitType.Star);
+            //CapturePreviewGrid.Visibility = Visibility.Visible;
+            //CaptureInfoTextBlock.Text = item.DisplayName;
+
+            //var compositor = App.MainWindow.Compositor;
+            //_preview?.Dispose();
+            //_preview = new CapturePreview(_device, item);
+            //var surface = _preview.CreateSurface(compositor);
+            //_previewBrush.Surface = surface;
+            //_preview.StartCapture();
+            //var includeCursor = GetIncludeCursor();
+            //if (!includeCursor)
+            //{
+            //    _preview.IsCursorCaptureEnabled = includeCursor;
+            //}
 
             StartRecordingButton.IsEnabled = true;
+        }
+        private void ProcessFrame(Direct3D11CaptureFrame frame)
+        {
+            try
+            {
+                CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_device, frame.Surface);
+
+                _currentFrame = canvasBitmap;
+
+                // Helper that handles the drawing for us.
+                FillSurfaceWithBitmap(canvasBitmap);
+            }
+            catch (Exception ex) { }
+
+        }
+        private void FillSurfaceWithBitmap(CanvasBitmap canvasBitmap)
+        {
+            CanvasComposition.Resize(_surface, canvasBitmap.Size);
+
+            using (var session = CanvasComposition.CreateDrawingSession(_surface))
+            {
+                session.Clear(Colors.Transparent);
+                session.DrawImage(canvasBitmap);
+            }
         }
 
         private void StopPreview()

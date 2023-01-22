@@ -1,5 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX.Direct3D11;
 using Windows.Graphics;
@@ -52,7 +56,6 @@ namespace ObjectDetection.WinApp.DirectXCaptureEncoder
         private GraphicsCaptureItem _item;
         private GraphicsCaptureSession _session;
         private Direct3D11CaptureFramePool _framePool;
-
         public CaptureFrameWait(
             IDirect3DDevice device,
             GraphicsCaptureItem item,
