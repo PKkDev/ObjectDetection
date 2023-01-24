@@ -1,430 +1,366 @@
-using Microsoft.UI.Xaml.Controls;
-using ObjectDetection.WinApp.MVVM.ViewModel;
 
+using ObjectDetection.WinApp.MVVM.ViewModel;
 using ObjectDetection.WinApp.DirectXCaptureEncoder;
 
-using Windows.Graphics.Capture;
-using Windows.Media.MediaProperties;
-using Windows.UI.Popups;
-using System.Collections.Generic;
-using Microsoft.UI.Xaml.Hosting;
-using Microsoft.UI.Xaml;
-using Windows.Foundation.Metadata;
-using System.Numerics;
-using Windows.Storage;
+using System.Threading.Tasks;
 using System;
+using System.Diagnostics;
+using System.Threading;
 
+using SharpDX.Direct3D11;
 
-//using Windows.UI.Composition;
-using Microsoft.UI.Composition;
+using Windows.Graphics.Capture;
+using Windows.Graphics.DirectX.Direct3D11;
+using Windows.Media.MediaProperties;
+using Windows.Media.Core;
+using Windows.Media.Transcoding;
+using Windows.Storage;
+using Windows.Storage.Streams;
+
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.Graphics.Canvas;
-using Windows.Graphics.DirectX;
-using Microsoft.Graphics.Canvas.UI.Composition;
-using Microsoft.UI;
+
+
+
+//
+using Windows.Foundation;
+using Windows.Media.AppRecording;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
-    class ResolutionItem
-    {
-        public string DisplayName { get; set; }
-        public DirectXCaptureEncoder.SizeUInt32 Resolution { get; set; }
-
-        public bool IsZero() { return Resolution.Width == 0 || Resolution.Height == 0; }
-    }
-
-    class BitrateItem
-    {
-        public string DisplayName { get; set; }
-        public uint Bitrate { get; set; }
-    }
-
-    class FrameRateItem
-    {
-        public string DisplayName { get; set; }
-        public uint FrameRate { get; set; }
-    }
-
     public sealed partial class ScreenCastPage : Page
     {
         public ScreenCastViewModel ViewModel { get; set; }
-
-        // private IDirect3DDevice _device;
-        private CanvasDevice _device;
-
-        private List<ResolutionItem> _resolutions;
-        private List<BitrateItem> _bitrates;
-        private List<FrameRateItem> _frameRates;
-
-        private CapturePreview _preview;
-        private SpriteVisual _previewVisual;
-        private CompositionSurfaceBrush _previewBrush;
-
-        struct AppSettings
-        {
-            public uint Width;
-            public uint Height;
-            public uint Bitrate;
-            public uint FrameRate;
-            public bool IncludeCursor;
-        }
 
         public ScreenCastPage()
         {
             InitializeComponent();
             ViewModel = App.GetService<ScreenCastViewModel>();
+        }
 
+        public IDirect3DDevice _device;
+        public SharpDX.Direct3D11.Device _sharpDxD3dDevice;
+
+        public GraphicsCaptureItem _captureItem;
+
+        public SharpDX.Direct3D11.Texture2D _composeTexture;
+        public SharpDX.Direct3D11.RenderTargetView _composeRenderTargetView;
+
+        public MediaEncodingProfile _encodingProfile;
+        public VideoStreamDescriptor _videoDescriptor;
+
+        public MediaStreamSource _mediaStreamSource;
+        public MediaTranscoder _transcoder;
+
+        public bool _isRecording = false;
+        public bool _closed = false;
+
+        public ManualResetEvent _frameEvent;
+        public ManualResetEvent _closedEvent;
+        public ManualResetEvent[] _events;
+
+        public Multithread _multithread;
+
+        public Direct3D11CaptureFramePool _framePool;
+        public GraphicsCaptureSession _session;
+
+        public Direct3D11CaptureFrame _currentFrame;
+
+        private async void StartBtn_Click(object sender, RoutedEventArgs e)
+        {
+            //await SetupEncoding();
+            StartRecording();
+        }
+
+        private IAsyncOperation<AppRecordingResult> operation;
+
+        private void StopBtn_Click(object sender, RoutedEventArgs e)
+        {
+            operation.Cancel();
+
+            //Stop();
+            //Cleanup();
+        }
+
+        private async void StartRecording()
+        {
+            AppRecordingManager manager = AppRecordingManager.GetDefault();
+            AppRecordingStatus status = manager.GetStatus();
+
+            //StorageFile file = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync("audio_record.mp4", CreationCollisionOption.ReplaceExisting);
+
+            if (status.CanRecord || status.CanRecordTimeSpan)
+            {
+                //operation = manager.StartRecordingToFileAsync(file);
+
+                var result = await manager.SaveScreenshotToFilesAsync(
+                    ApplicationData.Current.LocalFolder,
+                    "sceen",
+                    AppRecordingSaveScreenshotOption.HdrContentVisible,
+                    manager.SupportedScreenshotMediaEncodingSubtypes);
+
+                Debug.WriteLine(result.Succeeded);
+                if (result.Succeeded)
+                {
+                    foreach (var item in result.SavedScreenshotInfos)
+                    {
+                        Debug.WriteLine(item.File.DisplayName);
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine(result.ExtendedError.Message);
+                }
+            }
+        }
+
+        private async Task SetupEncoding()
+        {
             if (!GraphicsCaptureSession.IsSupported())
             {
-                IsEnabled = false;
-
-                var dialog = new MessageDialog(
-                    "Screen capture is not supported on this device for this release of Windows!",
-                    "Screen capture unsupported");
-
-                var ignored = dialog.ShowAsync();
+                // Show message to user that screen capture is unsupported
                 return;
             }
 
-            Compositor compositor = App.MainWindow.Compositor;
-            _previewBrush = compositor.CreateSurfaceBrush();
-            _previewBrush.Stretch = CompositionStretch.Uniform;
-            var shadow = compositor.CreateDropShadow();
-            shadow.Mask = _previewBrush;
-            _previewVisual = compositor.CreateSpriteVisual();
-            _previewVisual.RelativeSizeAdjustment = Vector2.One;
-            _previewVisual.Brush = _previewBrush;
-            _previewVisual.Shadow = shadow;
-            ElementCompositionPreview.SetElementChildVisual(CapturePreviewGrid, _previewVisual);
-
-            //_device = D3DDeviceManager.Device;
-            _device = new CanvasDevice();
-
-            _compositionGraphicsDevice = CanvasComposition.CreateCompositionGraphicsDevice(
-                App.MainWindow.Compositor,
-                _device);
-
-            _surface = _compositionGraphicsDevice.CreateDrawingSurface(
-                new Windows.Foundation.Size(400, 400),
-                Microsoft.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized,
-                Microsoft.Graphics.DirectX.DirectXAlphaMode.Premultiplied);
-
-
-
-
-
-
-            var settings = GetCachedSettings();
-
-            _resolutions = new List<ResolutionItem>();
-            foreach (var resolution in EncoderPresets.Resolutions)
+            // Create the D3D device and SharpDX device
+            if (_device == null)
             {
-                _resolutions.Add(new ResolutionItem()
+                //_device = Direct3D11Helpers.CreateD3DDevice();
+                _device = new CanvasDevice();
+            }
+
+            if (_sharpDxD3dDevice == null)
+            {
+                _sharpDxD3dDevice = Direct3D11Helpers.CreateSharpDXDevice(_device);
+            }
+
+            try
+            {
+                // Let the user pick an item to capture
+                var picker = new GraphicsCapturePicker();
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+                _captureItem = await picker.PickSingleItemAsync();
+                if (_captureItem == null)
                 {
-                    DisplayName = $"{resolution.Width} x {resolution.Height}",
-                    Resolution = resolution,
-                });
+                    return;
+                }
+
+                // Initialize a blank texture and render target view for copying frames, using the same size as the capture item
+                //_composeTexture = Direct3D11Helpers.InitializeComposeTexture(_sharpDxD3dDevice, _captureItem.Size);
+                //_composeRenderTargetView = new SharpDX.Direct3D11.RenderTargetView(_sharpDxD3dDevice, _composeTexture);
+
+                // This example encodes video using the item's actual size.
+                var width = (uint)_captureItem.Size.Width;
+                var height = (uint)_captureItem.Size.Height;
+
+                // Make sure the dimensions are are even. Required by some encoders.
+                width = (width % 2 == 0) ? width : width + 1;
+                height = (height % 2 == 0) ? height : height + 1;
+
+
+                var temp = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD1080p);
+                var bitrate = temp.Video.Bitrate;
+                uint framerate = 30;
+
+                _encodingProfile = new MediaEncodingProfile();
+                _encodingProfile.Container.Subtype = "MPEG4";
+                _encodingProfile.Video.Subtype = "H264";
+                _encodingProfile.Video.Width = width;
+                _encodingProfile.Video.Height = height;
+                _encodingProfile.Video.Bitrate = bitrate;
+                _encodingProfile.Video.FrameRate.Numerator = framerate;
+                _encodingProfile.Video.FrameRate.Denominator = 1;
+                _encodingProfile.Video.PixelAspectRatio.Numerator = 1;
+                _encodingProfile.Video.PixelAspectRatio.Denominator = 1;
+
+                var videoProperties = VideoEncodingProperties.CreateUncompressed(MediaEncodingSubtypes.Bgra8, width, height);
+                _videoDescriptor = new VideoStreamDescriptor(videoProperties);
+
+                // Create our MediaStreamSource
+                _mediaStreamSource = new MediaStreamSource(_videoDescriptor);
+                _mediaStreamSource.BufferTime = TimeSpan.FromSeconds(0);
+                _mediaStreamSource.Starting += OnMediaStreamSourceStarting;
+                _mediaStreamSource.SampleRequested += OnMediaStreamSourceSampleRequested;
+
+                // Create our transcoder
+                _transcoder = new MediaTranscoder();
+                _transcoder.HardwareAccelerationEnabled = true;
+
+
+                // Create a destination file - Access to the VideosLibrary requires the "Videos Library" capability
+                //var folder = KnownFolders.VideosLibrary;
+                var name = DateTime.Now.ToString("yyyyMMdd-HHmm-ss");
+                StorageFile file = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync($"{name}.mp4", CreationCollisionOption.GenerateUniqueName);
+
+                using var stream = await file.OpenAsync(FileAccessMode.ReadWrite);
+
+                await EncodeAsync(stream);
             }
-            _resolutions.Add(new ResolutionItem()
+            catch (Exception ex)
             {
-                DisplayName = "Use source size",
-                Resolution = new DirectXCaptureEncoder.SizeUInt32() { Width = 0, Height = 0 },
-            });
-            ResolutionComboBox.ItemsSource = _resolutions;
-            ResolutionComboBox.SelectedIndex = GetResolutionIndex(settings.Width, settings.Height);
 
-            _bitrates = new List<BitrateItem>();
-            foreach (var bitrate in EncoderPresets.Bitrates)
-            {
-                var mbps = (float)bitrate / 1000000;
-                _bitrates.Add(new BitrateItem()
-                {
-                    DisplayName = $"{mbps:0.##} Mbps",
-                    Bitrate = bitrate,
-                });
-            }
-            BitrateComboBox.ItemsSource = _bitrates;
-            BitrateComboBox.SelectedIndex = GetBitrateIndex(settings.Bitrate);
-
-            _frameRates = new List<FrameRateItem>();
-            foreach (var frameRate in EncoderPresets.FrameRates)
-            {
-                _frameRates.Add(new FrameRateItem()
-                {
-                    DisplayName = $"{frameRate}fps",
-                    FrameRate = frameRate,
-                });
-            }
-            FrameRateComboBox.ItemsSource = _frameRates;
-            FrameRateComboBox.SelectedIndex = GetFrameRateIndex(settings.FrameRate);
-
-
-            if (ApiInformation.IsPropertyPresent(typeof(GraphicsCaptureSession).FullName, nameof(GraphicsCaptureSession.IsCursorCaptureEnabled)))
-            {
-                IncludeCursorCheckBox.Visibility = Visibility.Visible;
-                IncludeCursorCheckBox.Checked += IncludeCursorCheckBox_Checked;
-                IncludeCursorCheckBox.Unchecked += IncludeCursorCheckBox_Checked;
-            }
-            IncludeCursorCheckBox.IsChecked = settings.IncludeCursor;
-
-        }
-
-        private void IncludeCursorCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            if (_preview != null)
-            {
-                _preview.IsCursorCaptureEnabled = ((CheckBox)sender).IsChecked.Value;
+                return;
             }
         }
 
-        private AppSettings GetCachedSettings()
+        private async Task EncodeAsync(IRandomAccessStream stream)
         {
-            var localSettings = ApplicationData.Current.LocalSettings;
-            var result = new AppSettings
+            if (!_isRecording)
             {
-                Width = 1920,
-                Height = 1080,
-                Bitrate = 18000000,
-                FrameRate = 60,
-                IncludeCursor = true
-            };
+                _isRecording = true;
 
-            // Resolution
-            if (localSettings.Values.TryGetValue(nameof(AppSettings.Width), out var width) &&
-                localSettings.Values.TryGetValue(nameof(AppSettings.Height), out var height))
-            {
-                result.Width = (uint)width;
-                result.Height = (uint)height;
-            }
-            // Support the old settings
-            else if (localSettings.Values.TryGetValue("UseSourceSize", out var useSourceSize) &&
-                (bool)useSourceSize == true)
-            {
-                result.Width = 0;
-                result.Height = 0;
-            }
-            else if (localSettings.Values.TryGetValue("Quality", out var quality))
-            {
-                var videoQuality = ParseEnumValue<VideoEncodingQuality>((string)quality);
+                StartCapture();
 
-                var temp = MediaEncodingProfile.CreateMp4(videoQuality);
-                result.Width = temp.Video.Width;
-                result.Height = temp.Video.Height;
+                var transcode = await _transcoder.PrepareMediaStreamSourceTranscodeAsync(_mediaStreamSource, stream, _encodingProfile);
+
+                await transcode.TranscodeAsync();
+            }
+        }
+
+        private void OnMediaStreamSourceSampleRequested(MediaStreamSource sender, MediaStreamSourceSampleRequestedEventArgs args)
+        {
+            if (_isRecording && !_closed)
+            {
+                try
+                {
+                    using (var frame = WaitForNewFrame())
+                    {
+                        if (frame == null)
+                        {
+                            args.Request.Sample = null;
+                            Stop();
+                            Cleanup();
+                            return;
+                        }
+
+                        var timeStamp = frame.SystemRelativeTime;
+
+                        var sample = MediaStreamSample.CreateFromDirect3D11Surface(frame.Surface, timeStamp);
+                        args.Request.Sample = sample;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.WriteLine(e.Message);
+                    Debug.WriteLine(e.StackTrace);
+                    Debug.WriteLine(e);
+                    args.Request.Sample = null;
+                    Stop();
+                    Cleanup();
+                }
+            }
+            else
+            {
+                args.Request.Sample = null;
+                Stop();
+                Cleanup();
+            }
+        }
+
+        private void OnMediaStreamSourceStarting(MediaStreamSource sender, MediaStreamSourceStartingEventArgs args)
+        {
+            using (var frame = WaitForNewFrame())
+            {
+                args.Request.SetActualStartPosition(frame.SystemRelativeTime);
+            }
+        }
+
+        public void StartCapture()
+        {
+
+            _multithread = _sharpDxD3dDevice.QueryInterface<SharpDX.Direct3D11.Multithread>();
+            _multithread.SetMultithreadProtected(true);
+            _frameEvent = new ManualResetEvent(false);
+            _closedEvent = new ManualResetEvent(false);
+            _events = new[] { _closedEvent, _frameEvent };
+
+            _captureItem.Closed += OnClosed;
+            _framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
+                 _device,
+                 Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized,
+                 1,
+                 _captureItem.Size);
+            _framePool.FrameArrived += OnFrameArrived;
+            _session = _framePool.CreateCaptureSession(_captureItem);
+            _session.StartCapture();
+        }
+
+        private void OnFrameArrived(Direct3D11CaptureFramePool sender, object args)
+        {
+            _currentFrame = sender.TryGetNextFrame();
+            _frameEvent.Set();
+        }
+
+        private void OnClosed(GraphicsCaptureItem sender, object args)
+        {
+            _closedEvent.Set();
+        }
+
+        public SurfaceWithInfo WaitForNewFrame()
+        {
+            // Let's get a fresh one.
+            _currentFrame?.Dispose();
+            _frameEvent.Reset();
+
+            var signaledEvent = _events[WaitHandle.WaitAny(_events)];
+            if (signaledEvent == _closedEvent)
+            {
+                Cleanup();
+                return null;
             }
 
-            // Bitrate
-            if (localSettings.Values.TryGetValue(nameof(AppSettings.Bitrate), out var bitrate))
+            var result = new SurfaceWithInfo();
+            result.SystemRelativeTime = _currentFrame.SystemRelativeTime;
+            using (var multithreadLock = new MultithreadLock(_multithread))
+            using (var sourceTexture = Direct3D11Helpers.CreateSharpDXTexture2D(_currentFrame.Surface))
             {
-                result.Bitrate = (uint)bitrate;
-            }
-            // Suppor the old setting
-            else if (localSettings.Values.TryGetValue("Quality", out var quality))
-            {
-                var videoQuality = ParseEnumValue<VideoEncodingQuality>((string)quality);
 
-                var temp = MediaEncodingProfile.CreateMp4(videoQuality);
-                result.Bitrate = temp.Video.Bitrate;
-            }
+                _sharpDxD3dDevice.ImmediateContext.ClearRenderTargetView(_composeRenderTargetView, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 1));
 
-            // Frame rate
-            if (localSettings.Values.TryGetValue(nameof(AppSettings.FrameRate), out var frameRate))
-            {
-                result.FrameRate = (uint)frameRate;
-            }
+                var width = Math.Clamp(_currentFrame.ContentSize.Width, 0, _currentFrame.Surface.Description.Width);
+                var height = Math.Clamp(_currentFrame.ContentSize.Height, 0, _currentFrame.Surface.Description.Height);
+                var region = new SharpDX.Direct3D11.ResourceRegion(0, 0, 0, width, height, 1);
+                _sharpDxD3dDevice.ImmediateContext.CopySubresourceRegion(sourceTexture, 0, region, _composeTexture, 0);
 
-            // Include cursor
-            if (localSettings.Values.TryGetValue(nameof(AppSettings.IncludeCursor), out var includeCursor))
-            {
-                result.IncludeCursor = (bool)includeCursor;
+                var description = sourceTexture.Description;
+                description.Usage = SharpDX.Direct3D11.ResourceUsage.Default;
+                description.BindFlags = SharpDX.Direct3D11.BindFlags.ShaderResource | SharpDX.Direct3D11.BindFlags.RenderTarget;
+                description.CpuAccessFlags = SharpDX.Direct3D11.CpuAccessFlags.None;
+                description.OptionFlags = SharpDX.Direct3D11.ResourceOptionFlags.None;
+
+                using (var copyTexture = new SharpDX.Direct3D11.Texture2D(_sharpDxD3dDevice, description))
+                {
+                    _sharpDxD3dDevice.ImmediateContext.CopyResource(_composeTexture, copyTexture);
+                    result.Surface = Direct3D11Helpers.CreateDirect3DSurfaceFromSharpDXTexture(copyTexture);
+                }
             }
 
             return result;
         }
-        private static T ParseEnumValue<T>(string input)
+
+        private void Stop()
         {
-            return (T)Enum.Parse(typeof(T), input, false);
+            _closedEvent.Set();
         }
 
-        private int GetResolutionIndex(uint width, uint height)
+        private void Cleanup()
         {
-            for (var i = 0; i < _resolutions.Count; i++)
+            _framePool?.Dispose();
+            _session?.Dispose();
+            if (_captureItem != null)
             {
-                var resolution = _resolutions[i];
-                if (resolution.Resolution.Width == width &&
-                    resolution.Resolution.Height == height)
-                {
-                    return i;
-                }
+                _captureItem.Closed -= OnClosed;
             }
-            return -1;
+            _captureItem = null;
+            _device = null;
+            _sharpDxD3dDevice = null;
+            _composeTexture?.Dispose();
+            _composeTexture = null;
+            _composeRenderTargetView?.Dispose();
+            _composeRenderTargetView = null;
+            _currentFrame?.Dispose();
         }
-
-        private int GetBitrateIndex(uint bitrate)
-        {
-            for (var i = 0; i < _bitrates.Count; i++)
-            {
-                if (_bitrates[i].Bitrate == bitrate)
-                {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-        private int GetFrameRateIndex(uint frameRate)
-        {
-            for (var i = 0; i < _frameRates.Count; i++)
-            {
-                if (_frameRates[i].FrameRate == frameRate)
-                {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-        private async void CaptureButton_Click(object sender, RoutedEventArgs e)
-        {
-            var picker = new GraphicsCapturePicker();
-
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-
-            var item = await picker.PickSingleItemAsync();
-            if (item != null)
-            {
-                StartPreview(item);
-            }
-            else
-            {
-                StopPreview();
-            }
-        }
-
-        private Direct3D11CaptureFramePool _framePool;
-        private CanvasBitmap _currentFrame;
-        private CompositionDrawingSurface _surface;
-        private CompositionGraphicsDevice _compositionGraphicsDevice;
-        private GraphicsCaptureSession _session;
-
-        private void StartPreview(GraphicsCaptureItem item)
-        {
-
-
-            _framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
-                      _device,
-                      DirectXPixelFormat.B8G8R8A8UIntNormalized,
-                      2,
-                      item.Size);
-            _framePool.FrameArrived += (sender, e) =>
-            {
-                using (var frame = _framePool.TryGetNextFrame())
-                {
-                    ProcessFrame(frame);
-                }
-            };
-
-            _session = _framePool.CreateCaptureSession(item);
-            _session.StartCapture();
-
-
-            //PreviewContainerGrid.RowDefinitions[1].Height = new GridLength(2, GridUnitType.Star);
-            //CapturePreviewGrid.Visibility = Visibility.Visible;
-            //CaptureInfoTextBlock.Text = item.DisplayName;
-
-            //var compositor = App.MainWindow.Compositor;
-            //_preview?.Dispose();
-            //_preview = new CapturePreview(_device, item);
-            //var surface = _preview.CreateSurface(compositor);
-            //_previewBrush.Surface = surface;
-            //_preview.StartCapture();
-            //var includeCursor = GetIncludeCursor();
-            //if (!includeCursor)
-            //{
-            //    _preview.IsCursorCaptureEnabled = includeCursor;
-            //}
-
-            StartRecordingButton.IsEnabled = true;
-        }
-        private void ProcessFrame(Direct3D11CaptureFrame frame)
-        {
-            try
-            {
-                CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_device, frame.Surface);
-
-                _currentFrame = canvasBitmap;
-
-                // Helper that handles the drawing for us.
-                FillSurfaceWithBitmap(canvasBitmap);
-            }
-            catch (Exception ex) { }
-
-        }
-        private void FillSurfaceWithBitmap(CanvasBitmap canvasBitmap)
-        {
-            CanvasComposition.Resize(_surface, canvasBitmap.Size);
-
-            using (var session = CanvasComposition.CreateDrawingSession(_surface))
-            {
-                session.Clear(Colors.Transparent);
-                session.DrawImage(canvasBitmap);
-            }
-        }
-
-        private void StopPreview()
-        {
-            PreviewContainerGrid.RowDefinitions[1].Height = new GridLength(0);
-            CapturePreviewGrid.Visibility = Visibility.Collapsed;
-            CaptureInfoTextBlock.Text = "Pick something to capture";
-            _preview?.Dispose();
-            _preview = null;
-
-            StartRecordingButton.IsEnabled = false;
-        }
-
-        private bool GetIncludeCursor()
-        {
-            if (IncludeCursorCheckBox.Visibility == Visibility.Visible)
-            {
-                return IncludeCursorCheckBox.IsChecked.Value;
-            }
-            return true;
-        }
-
-        private void StartRecordingButton_Click(object sender, RoutedEventArgs e)
-        {
-            //if (_preview == null)
-            //{
-            //    throw new InvalidOperationException("There is no current preview!");
-            //}
-
-            //// Get our encoder properties
-            //var frameRateItem = (FrameRateItem)FrameRateComboBox.SelectedItem;
-            //var resolutionItem = (ResolutionItem)ResolutionComboBox.SelectedItem;
-            //var bitrateItem = (BitrateItem)BitrateComboBox.SelectedItem;
-
-            //var useSourceSize = resolutionItem.IsZero();
-            //var width = resolutionItem.Resolution.Width;
-            //var height = resolutionItem.Resolution.Height;
-            //var bitrate = bitrateItem.Bitrate;
-            //var frameRate = frameRateItem.FrameRate;
-            //var includeCursor = GetIncludeCursor();
-
-            //// Use the capture item's size for the encoding if desired
-            //if (useSourceSize)
-            //{
-            //    var targetSize = _preview.Target.Size;
-            //    width = (uint)targetSize.Width;
-            //    height = (uint)targetSize.Height;
-            //}
-            //var resolution = new SizeUInt32() { Width = width, Height = height };
-
-            //var recordingOptions = new RecordingOptions(_preview.Target, resolution, bitrate, frameRate, includeCursor);
-            //_preview.Dispose();
-            //_preview = null;
-            //StartRecordingButton.IsEnabled = false;
-
-            //Frame.Navigate(typeof(RecordingPage), recordingOptions);
-        }
-
     }
 }

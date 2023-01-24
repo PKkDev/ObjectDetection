@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+
+
 using Windows.Graphics.DirectX.Direct3D11;
+using Windows.Graphics;
 
 namespace ObjectDetection.WinApp.DirectXCaptureEncoder
 {
@@ -41,15 +44,15 @@ namespace ObjectDetection.WinApp.DirectXCaptureEncoder
             )]
         internal static extern UInt32 CreateDirect3D11SurfaceFromDXGISurface(IntPtr dxgiSurface, out IntPtr graphicsSurface);
 
-        public static IDirect3DDevice CreateDevice()
+        public static IDirect3DDevice CreateD3DDevice()
         {
-            return CreateDevice(false);
+            return CreateD3DDevice(false);
         }
 
-        public static IDirect3DDevice CreateDevice(bool useWARP)
+        public static IDirect3DDevice CreateD3DDevice(bool useWARP)
         {
             var d3dDevice = new SharpDX.Direct3D11.Device(
-                useWARP ? SharpDX.Direct3D.DriverType.Warp : SharpDX.Direct3D.DriverType.Hardware,
+                useWARP ? SharpDX.Direct3D.DriverType.Software : SharpDX.Direct3D.DriverType.Hardware,
                 SharpDX.Direct3D11.DeviceCreationFlags.BgraSupport);
             IDirect3DDevice device = null;
 
@@ -68,6 +71,7 @@ namespace ObjectDetection.WinApp.DirectXCaptureEncoder
 
             return device;
         }
+
 
         internal static IDirect3DSurface CreateDirect3DSurfaceFromSharpDXTexture(SharpDX.Direct3D11.Texture2D texture)
         {
@@ -89,6 +93,8 @@ namespace ObjectDetection.WinApp.DirectXCaptureEncoder
             return surface;
         }
 
+
+
         internal static SharpDX.Direct3D11.Device CreateSharpDXDevice(IDirect3DDevice device)
         {
             var access = (IDirect3DDxgiInterfaceAccess)device;
@@ -103,6 +109,39 @@ namespace ObjectDetection.WinApp.DirectXCaptureEncoder
             var d3dPointer = access.GetInterface(ID3D11Texture2D);
             var d3dSurface = new SharpDX.Direct3D11.Texture2D(d3dPointer);
             return d3dSurface;
+        }
+
+
+        public static SharpDX.Direct3D11.Texture2D InitializeComposeTexture(
+            SharpDX.Direct3D11.Device sharpDxD3dDevice,
+            SizeInt32 size)
+        {
+            var description = new SharpDX.Direct3D11.Texture2DDescription
+            {
+                Width = size.Width,
+                Height = size.Height,
+                MipLevels = 1,
+                ArraySize = 1,
+                Format = SharpDX.DXGI.Format.B8G8R8A8_UNorm,
+                SampleDescription = new SharpDX.DXGI.SampleDescription()
+                {
+                    Count = 1,
+                    Quality = 0
+                },
+                Usage = SharpDX.Direct3D11.ResourceUsage.Default,
+                BindFlags = SharpDX.Direct3D11.BindFlags.ShaderResource | SharpDX.Direct3D11.BindFlags.RenderTarget,
+                CpuAccessFlags = SharpDX.Direct3D11.CpuAccessFlags.None,
+                OptionFlags = SharpDX.Direct3D11.ResourceOptionFlags.None
+            };
+            var composeTexture = new SharpDX.Direct3D11.Texture2D(sharpDxD3dDevice, description);
+
+
+            using (var renderTargetView = new SharpDX.Direct3D11.RenderTargetView(sharpDxD3dDevice, composeTexture))
+            {
+                sharpDxD3dDevice.ImmediateContext.ClearRenderTargetView(renderTargetView, new SharpDX.Mathematics.Interop.RawColor4(0, 0, 0, 1));
+            }
+
+            return composeTexture;
         }
     }
 }

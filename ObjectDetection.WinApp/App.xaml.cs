@@ -50,8 +50,10 @@ namespace ObjectDetection.WinApp
                 services.AddTransient<PictureDetectPage>();
                 services.AddTransient<CameraDetectViewModel>();
                 services.AddTransient<CameraDetectPage>();
+
                 services.AddTransient<ScreenCastViewModel>();
                 services.AddTransient<ScreenCastPage>();
+                services.AddTransient<CaptureTestPage>();
 
                 services.AddTransient<NavigationHelperService>();
 
