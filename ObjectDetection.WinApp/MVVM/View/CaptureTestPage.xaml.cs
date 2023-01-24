@@ -1,4 +1,3 @@
-
 using Microsoft.UI;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
@@ -14,6 +13,17 @@ using Windows.Foundation;
 using Windows.Graphics;
 using Windows.Graphics.Capture;
 using Windows.Storage;
+//
+using Windows.Media.Core;
+using Windows.Media.MediaProperties;
+using Windows.Media.Transcoding;
+using System.Collections.Generic;
+using Windows.Media;
+using Windows.Graphics.DirectX.Direct3D11;
+using System.Threading;
+using ObjectDetection.WinApp.DirectXCaptureEncoder;
+using CommunityToolkit.WinUI.UI.Controls;
+using Windows.Media.Playback;
 
 //using Windows.UI;
 //using Windows.UI.Composition;
@@ -72,7 +82,6 @@ namespace ObjectDetection.WinApp.MVVM.View
             ElementCompositionPreview.SetElementChildVisual(this, visual);
         }
 
-
         public async Task StartCaptureAsync()
         {
             // The GraphicsCapturePicker follows the same pattern the
@@ -86,9 +95,144 @@ namespace ObjectDetection.WinApp.MVVM.View
             // control without making a selection or hit Cancel.
             if (item != null)
             {
+
+                #region
+                var w = (uint)item.Size.Width;
+                var h = (uint)item.Size.Height;
+                uint frn = 30;
+                uint frd = 1;
+                var videoProps = VideoEncodingProperties.CreateUncompressed(MediaEncodingSubtypes.Bgra8, w, h);
+                var videoDescriptor = new VideoStreamDescriptor(videoProps);
+
+                //videoDescriptor.EncodingProperties.FrameRate.Numerator = frn;
+                //videoDescriptor.EncodingProperties.FrameRate.Denominator = frd;
+                //videoDescriptor.EncodingProperties.Bitrate = (uint)(frn * frd * w * h * 4);
+                var streamSource = new MediaStreamSource(videoDescriptor);
+
+                TimeSpan spanBuffer = new TimeSpan(0, 0, 0, 0, 250);
+                streamSource.BufferTime = spanBuffer;
+
+                streamSource.SampleRequested += StreamSource_SampleRequested;
+
+                streamSource.Closed += (MediaStreamSource sender, MediaStreamSourceClosedEventArgs args) =>
+                {
+                };
+                streamSource.Starting += (MediaStreamSource sender, MediaStreamSourceStartingEventArgs args) =>
+                {
+                    startedAt = DateTime.Now;
+                };
+                streamSource.Paused += (MediaStreamSource sender, object args) =>
+                {
+                };
+                streamSource.SwitchStreamsRequested += (MediaStreamSource sender, MediaStreamSourceSwitchStreamsRequestedEventArgs args) =>
+                {
+                };
+
+                #endregion
+
+                #region
+                var tc = new MediaTranscoder();
+
+                //var prof = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD720p);
+                var temp = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD1080p);
+                var bitrate = temp.Video.Bitrate;
+                var prof = new MediaEncodingProfile();
+                prof.Container.Subtype = "MPEG4";
+                prof.Video.Subtype = "H264";
+                prof.Video.Width = w;
+                prof.Video.Height = h;
+                prof.Video.Bitrate = bitrate;
+                prof.Video.FrameRate.Numerator = frd;
+                prof.Video.FrameRate.Denominator = 1;
+                prof.Video.PixelAspectRatio.Numerator = 1;
+                prof.Video.PixelAspectRatio.Denominator = 1;
+
+                var tempFolder = ApplicationData.Current.LocalCacheFolder;
+                var file = await tempFolder.CreateFileAsync("out2.mp4", CreationCollisionOption.ReplaceExisting);
+                var outputStream = await file.OpenAsync(FileAccessMode.ReadWrite);
+                try
+                {
+
+                    var result = await tc.PrepareMediaStreamSourceTranscodeAsync(streamSource, outputStream, prof);
+                    if (result.CanTranscode)
+                    {
+                        var op = result.TranscodeAsync();
+                        //op.Progress += new AsyncActionProgressHandler<double>(TranscodeProgress);
+                        //op.Completed += new AsyncActionWithProgressCompletedHandler<double>(TranscodeComplete);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"error...{e}");
+                    throw;
+                }
+                #endregion
+
+
                 StartCaptureInternal(item);
             }
         }
+
+        #region
+        //public Queue<Direct3D11CaptureFrame> frames = new();
+        public Queue<SurfaceWithInfo> frames = new();
+        DateTime startedAt = DateTime.Now;
+        public bool isRecording = false;
+        #endregion
+
+        #region
+        private void StreamSource_SampleRequested(MediaStreamSource sender, MediaStreamSourceSampleRequestedEventArgs args)
+        {
+            //if (isRecording)
+            //{
+            //Thread.Sleep(TimeSpan.FromMilliseconds(500));
+            //StreamSource_SampleRequested(sender, args);
+            try
+            {
+                if (frames.Count == 0)
+                {
+                    //args.Request.Sample = null;
+                    //return;
+                    Thread.Sleep(TimeSpan.FromMilliseconds(500));
+                    StreamSource_SampleRequested(sender, args);
+                }
+                var videoFrame = frames.Dequeue();
+
+                if (videoFrame == null)
+                {
+                    args.Request.Sample = null;
+                    return;
+                }
+
+                var timestamp = DateTime.Now - startedAt;
+
+                // var samp = MediaStreamSample.CreateFromBuffer(videoFrame.Buffer.AsBuffer(), videoFrame.TimeStamp);
+                var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
+
+                //samp.Processed += OnSampleProcessed;
+                args.Request.Sample = samp;
+            }
+            catch (Exception e)
+            {
+                args.Request.Sample = null;
+                return;
+            }
+            //}
+            //else
+            //{
+            //    //args.Request.Sample = null;
+            //    //return;
+            //    Thread.Sleep(TimeSpan.FromMilliseconds(500));
+            //    StreamSource_SampleRequested(sender, args);
+            //}
+
+        }
+
+        private void OnSampleProcessed(MediaStreamSample sender, object args)
+        {
+
+        }
+        #endregion
 
         private async void StartCaptureInternal(GraphicsCaptureItem item)
         {
@@ -98,10 +242,12 @@ namespace ObjectDetection.WinApp.MVVM.View
             _item = item;
             _lastSize = _item.Size;
 
+            isRecording = true;
+
             _framePool = Direct3D11CaptureFramePool.Create(
                _canvasDevice, // D3D device
                Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized, // Pixel format
-               2, // Number of frames
+               1, // Number of frames
                _item.Size); // Size of the buffers
 
             _framePool.FrameArrived += (s, a) =>
@@ -162,9 +308,27 @@ namespace ObjectDetection.WinApp.MVVM.View
                 // Composition surface.
 
                 // Convert our D3D11 surface into a Win2D object.
-                CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(
-                    _canvasDevice,
-                    frame.Surface);
+                CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_canvasDevice, frame.Surface);
+
+                Windows.Storage.Streams.IBuffer b;
+                var g = canvasBitmap.GetPixelBytes();
+
+                #region
+                //var lastSampleTime = frame.SystemRelativeTime;
+                //var w = (int)canvasBitmap.Size.Width;
+                //var h = (int)canvasBitmap.Size.Height;
+                //var c = new VideoFrame(Windows.Graphics.Imaging.BitmapPixelFormat.Rgba8, w, h);
+
+                //var vf = VideoFrame.CreateWithDirect3D11Surface(frame.Surface);
+
+                //var videoFrame = new VideoFrame(canvasBitmap.GetPixelBytes(), videoHead);
+                //videoHead = videoHead.Add(TimeSpan.FromMilliseconds(_timeStepMillis));
+                frames.Enqueue(new SurfaceWithInfo()
+                {
+                    Surface = frame.Surface,
+                    SystemRelativeTime = frame.SystemRelativeTime
+                });
+                #endregion
 
                 _currentFrame = canvasBitmap;
 
@@ -231,6 +395,11 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         private async void ScreenshotButton_ClickAsync(object sender, RoutedEventArgs e)
         {
+            isRecording = false;
+            this.frames.Enqueue(null);
+
+            StopCapture();
+
             await SaveImageAsync(_screenshotFilename, _currentFrame);
         }
 
