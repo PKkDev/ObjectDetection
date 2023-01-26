@@ -16,8 +16,6 @@ using Windows.Storage;
 using Windows.System;
 using YOLO3.Shared.DataStructures;
 using YOLO3.Shared.Parser;
-using YOLO4.Shared.DataStructures;
-using YOLO4.Shared.Parser;
 
 namespace ObjectDetection.WinApp.MVVM.ViewModel
 {

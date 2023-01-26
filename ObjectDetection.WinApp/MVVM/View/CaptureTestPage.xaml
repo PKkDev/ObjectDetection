@@ -7,12 +7,27 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <StackPanel>
+    <Grid>
 
-        <Button Content="cc1" Click="Button_ClickAsync"></Button>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"></RowDefinition>
+            <RowDefinition></RowDefinition>
+        </Grid.RowDefinitions>
 
-        <Button x:Name="ScreenshotButton" Content="cc2" Click="ScreenshotButton_ClickAsync"></Button>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="15">
 
-    </StackPanel>
+            <Button Content="start" Click="Button_ClickAsync"></Button>
+
+            <Button x:Name="ScreenshotButton" Content="stop" Click="ScreenshotButton_ClickAsync"></Button>
+
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+
+            <Image x:Name="previewImage" Stretch="Uniform" Height="900" Width="990"></Image>
+
+        </Grid>
+
+    </Grid>
 
 </Page>

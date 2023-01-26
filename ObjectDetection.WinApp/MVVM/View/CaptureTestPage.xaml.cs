@@ -3,6 +3,10 @@ using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
+using System.Collections.Generic;
+using System.Threading;
+
+using ObjectDetection.WinApp.DirectXCaptureEncoder;
 
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.UI.Composition;
@@ -17,13 +21,6 @@ using Windows.Storage;
 using Windows.Media.Core;
 using Windows.Media.MediaProperties;
 using Windows.Media.Transcoding;
-using System.Collections.Generic;
-using Windows.Media;
-using Windows.Graphics.DirectX.Direct3D11;
-using System.Threading;
-using ObjectDetection.WinApp.DirectXCaptureEncoder;
-using CommunityToolkit.WinUI.UI.Controls;
-using Windows.Media.Playback;
 
 //using Windows.UI;
 //using Windows.UI.Composition;
@@ -95,7 +92,6 @@ namespace ObjectDetection.WinApp.MVVM.View
             // control without making a selection or hit Cancel.
             if (item != null)
             {
-
                 #region
                 var w = (uint)item.Size.Width;
                 var h = (uint)item.Size.Height;
@@ -115,25 +111,21 @@ namespace ObjectDetection.WinApp.MVVM.View
                 streamSource.SampleRequested += StreamSource_SampleRequested;
 
                 streamSource.Closed += (MediaStreamSource sender, MediaStreamSourceClosedEventArgs args) =>
-                {
-                };
+                { };
                 streamSource.Starting += (MediaStreamSource sender, MediaStreamSourceStartingEventArgs args) =>
                 {
                     startedAt = DateTime.Now;
                 };
                 streamSource.Paused += (MediaStreamSource sender, object args) =>
-                {
-                };
+                { };
                 streamSource.SwitchStreamsRequested += (MediaStreamSource sender, MediaStreamSourceSwitchStreamsRequestedEventArgs args) =>
-                {
-                };
+                { };
 
                 #endregion
 
                 #region
                 var tc = new MediaTranscoder();
 
-                //var prof = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD720p);
                 var temp = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD1080p);
                 var bitrate = temp.Video.Bitrate;
                 var prof = new MediaEncodingProfile();
@@ -168,7 +160,6 @@ namespace ObjectDetection.WinApp.MVVM.View
                 }
                 #endregion
 
-
                 StartCaptureInternal(item);
             }
         }
@@ -177,7 +168,7 @@ namespace ObjectDetection.WinApp.MVVM.View
         //public Queue<Direct3D11CaptureFrame> frames = new();
         public Queue<SurfaceWithInfo> frames = new();
         DateTime startedAt = DateTime.Now;
-        public bool isRecording = false;
+        //public bool isRecording = false;
         #endregion
 
         #region
@@ -206,10 +197,9 @@ namespace ObjectDetection.WinApp.MVVM.View
 
                 var timestamp = DateTime.Now - startedAt;
 
-                // var samp = MediaStreamSample.CreateFromBuffer(videoFrame.Buffer.AsBuffer(), videoFrame.TimeStamp);
-                var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
+                var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, timestamp);
 
-                //samp.Processed += OnSampleProcessed;
+                samp.Processed += (MediaStreamSample sender, object args) => { };
                 args.Request.Sample = samp;
             }
             catch (Exception e)
@@ -228,10 +218,7 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         }
 
-        private void OnSampleProcessed(MediaStreamSample sender, object args)
-        {
 
-        }
         #endregion
 
         private async void StartCaptureInternal(GraphicsCaptureItem item)
@@ -242,24 +229,15 @@ namespace ObjectDetection.WinApp.MVVM.View
             _item = item;
             _lastSize = _item.Size;
 
-            isRecording = true;
+            //isRecording = true;
 
             _framePool = Direct3D11CaptureFramePool.Create(
                _canvasDevice, // D3D device
                Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized, // Pixel format
-               1, // Number of frames
-               _item.Size); // Size of the buffers
+               1, _item.Size);
 
             _framePool.FrameArrived += (s, a) =>
             {
-                // The FrameArrived event is raised for every frame on the thread
-                // that created the Direct3D11CaptureFramePool. This means we
-                // don't have to do a null-check here, as we know we're the only
-                // one dequeueing frames in our application.  
-
-                // NOTE: Disposing the frame retires it and returns  
-                // the buffer to the pool.
-
                 using (var frame = _framePool.TryGetNextFrame())
                 {
                     ProcessFrame(frame);
@@ -295,12 +273,12 @@ namespace ObjectDetection.WinApp.MVVM.View
             bool needsReset = false;
             bool recreateDevice = false;
 
-            if ((frame.ContentSize.Width != _lastSize.Width) ||
-                (frame.ContentSize.Height != _lastSize.Height))
-            {
-                needsReset = true;
-                _lastSize = frame.ContentSize;
-            }
+            //if ((frame.ContentSize.Width != _lastSize.Width) ||
+            //    (frame.ContentSize.Height != _lastSize.Height))
+            //{
+            //    needsReset = true;
+            //    _lastSize = frame.ContentSize;
+            //}
 
             try
             {
@@ -310,8 +288,13 @@ namespace ObjectDetection.WinApp.MVVM.View
                 // Convert our D3D11 surface into a Win2D object.
                 CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_canvasDevice, frame.Surface);
 
-                Windows.Storage.Streams.IBuffer b;
-                var g = canvasBitmap.GetPixelBytes();
+                //var sb = await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface);
+                //if (sb.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || sb.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
+                //    sb = SoftwareBitmap.Convert(sb, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+                //var sfbs = new SoftwareBitmapSource();
+                //await sfbs.SetBitmapAsync(sb);
+                //previewImage.Source = sfbs;
+                //sb.Dispose();
 
                 #region
                 //var lastSampleTime = frame.SystemRelativeTime;
@@ -328,12 +311,13 @@ namespace ObjectDetection.WinApp.MVVM.View
                     Surface = frame.Surface,
                     SystemRelativeTime = frame.SystemRelativeTime
                 });
+                //  videoHead = videoHead.Add(TimeSpan.FromMilliseconds(_timeStepMillis));
                 #endregion
 
                 _currentFrame = canvasBitmap;
 
                 // Helper that handles the drawing for us.
-                FillSurfaceWithBitmap(canvasBitmap);
+                //FillSurfaceWithBitmap(canvasBitmap);
             }
 
             // This is the device-lost convention for Win2D.
@@ -395,7 +379,7 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         private async void ScreenshotButton_ClickAsync(object sender, RoutedEventArgs e)
         {
-            isRecording = false;
+            //isRecording = false;
             this.frames.Enqueue(null);
 
             StopCapture();

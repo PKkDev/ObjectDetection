@@ -1,29 +1,21 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Graphics.Canvas;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using ObjectDetection.WinApp.FrameSourceHelper;
 using ObjectDetection.WinApp.Services;
-using SkiaSharp;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using Windows.Graphics.Display;
 using Windows.Graphics.Imaging;
 using Windows.Media;
 using Windows.Storage;
-using Windows.Storage.FileProperties;
 using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
 using Windows.System;
 using YOLO3.Shared.Parser;
-using YOLO4.Shared.Parser;
-using static System.Net.WebRequestMethods;
 
 namespace ObjectDetection.WinApp.MVVM.ViewModel
 {
