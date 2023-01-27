@@ -22,9 +22,9 @@
 
         </StackPanel>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" x:Name="gridToPreview">
 
-            <Image x:Name="previewImage" Stretch="Uniform" Height="900" Width="990"></Image>
+            <!--<Image x:Name="previewImage" Stretch="Uniform" Height="900" Width="990"></Image>-->
 
         </Grid>
 

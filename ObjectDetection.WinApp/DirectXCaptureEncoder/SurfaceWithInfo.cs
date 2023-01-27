@@ -18,7 +18,7 @@ namespace ObjectDetection.WinApp.DirectXCaptureEncoder
 
     public static class CaptureSettings
     {
-
+        // WxH
         public static SizeUInt32[] Resolutions => new SizeUInt32[]
         {
             new SizeUInt32() { Width = 1280, Height = 720 },
@@ -27,8 +27,12 @@ namespace ObjectDetection.WinApp.DirectXCaptureEncoder
             new SizeUInt32() { Width = 7680, Height = 4320 }
         };
 
+        //  N/1000000 Mbps
+        //var temp = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD1080p);
+        //var bitrate = temp.Video.Bitrate;
         public static uint[] Bitrates => new uint[] { 9000000, 18000000, 36000000, 72000000 };
 
+        // N fps
         public static uint[] FrameRates => new uint[] { 24, 30, 60 };
     }
 }
