@@ -19,7 +19,6 @@
     <None Remove="MVVM\View\CameraDetectPage.xaml" />
     <None Remove="MVVM\View\CaptureTestPage.xaml" />
     <None Remove="MVVM\View\PictureDetectPage.xaml" />
-    <None Remove="MVVM\View\ScreenCastPage.xaml" />
     <None Remove="MVVM\View\SettingsPage.xaml" />
     <None Remove="MVVM\View\ShellPage.xaml" />
   </ItemGroup>
@@ -84,9 +83,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Page Update="MVVM\View\CaptureTestPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Update="MVVM\View\ScreenCastPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

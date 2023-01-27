@@ -16,9 +16,21 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="15">
 
-            <Button Content="start" Click="Button_ClickAsync"></Button>
+            <Button Click="Click_SelectGraphicsCapture">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xF7EE;"/>
+            </Button>
 
-            <Button x:Name="ScreenshotButton" Content="stop" Click="ScreenshotButton_ClickAsync"></Button>
+            <Button Click="Click_StartCapture">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7C8;"/>
+            </Button>
+
+            <Button Click="Click_StopCapture">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE71A;"/>
+            </Button>
+
+            <Button Click="Click_TakeScreenShot">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE722;"/>
+            </Button>
 
         </StackPanel>
 

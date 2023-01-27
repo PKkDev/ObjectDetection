@@ -21,13 +21,7 @@ using Windows.Storage;
 using Windows.Media.Core;
 using Windows.Media.MediaProperties;
 using Windows.Media.Transcoding;
-
-//using Windows.UI;
-//using Windows.UI.Composition;
-//using Windows.UI.Xaml;
-//using Windows.UI.Xaml.Controls;
-//using Windows.UI.Xaml.Hosting;
-
+using Windows.Graphics.DirectX.Direct3D11;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -35,7 +29,7 @@ namespace ObjectDetection.WinApp.MVVM.View
     {
         // Capture API objects.
         private SizeInt32 _lastSize;
-        private GraphicsCaptureItem _item;
+        private GraphicsCaptureItem _captureItem;
         private Direct3D11CaptureFramePool _framePool;
         private GraphicsCaptureSession _session;
 
@@ -44,8 +38,13 @@ namespace ObjectDetection.WinApp.MVVM.View
         private CompositionGraphicsDevice _compositionGraphicsDevice;
         private Compositor _compositor;
         private CompositionDrawingSurface _surface;
-        private CanvasBitmap _currentFrame;
-        private string _screenshotFilename = "test.png";
+        private IDirect3DSurface _currentFrame;
+
+        #region
+        public Queue<SurfaceWithInfo> frames = new();
+        public DateTime startedAt = DateTime.Now;
+        public bool _isRecording = false;
+        #endregion
 
         public CaptureTestPage()
         {
@@ -67,8 +66,7 @@ namespace ObjectDetection.WinApp.MVVM.View
                 new Size(400, 400),
                 Microsoft.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized,
                 Microsoft.Graphics.DirectX.DirectXAlphaMode.Premultiplied);    // This is the only value that currently works with
-                                                                               // the composition APIs.
-
+                                                                               // the composition APIs
             var visual = _compositor.CreateSpriteVisual();
             visual.RelativeSizeAdjustment = Vector2.One;
             var brush = _compositor.CreateSurfaceBrush(_surface);
@@ -79,192 +77,53 @@ namespace ObjectDetection.WinApp.MVVM.View
             ElementCompositionPreview.SetElementChildVisual(gridToPreview, visual);
         }
 
-        public async Task StartCaptureAsync()
+        private async void Click_SelectGraphicsCapture(object sender, RoutedEventArgs e)
         {
-            // The GraphicsCapturePicker follows the same pattern the
-            // file pickers do.
-            var picker = new GraphicsCapturePicker();
+            GraphicsCapturePicker picker = new();
             var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
             WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
             GraphicsCaptureItem captureItem = await picker.PickSingleItemAsync();
 
-            // The item may be null if the user dismissed the
-            // control without making a selection or hit Cancel.
             if (captureItem != null)
             {
-                #region
-                var width = captureItem.Size.Width;
-                var height = captureItem.Size.Height;
-
-                var videoProps = VideoEncodingProperties.CreateUncompressed(MediaEncodingSubtypes.Bgra8, (uint)width, (uint)height);
-                var videoDescriptor = new VideoStreamDescriptor(videoProps);
-
-                var streamSource = new MediaStreamSource(videoDescriptor);
-                streamSource.BufferTime = TimeSpan.FromSeconds(0);
-                streamSource.SampleRequested += StreamSource_SampleRequested;
-                streamSource.Closed += (MediaStreamSource sender, MediaStreamSourceClosedEventArgs args) => { };
-                streamSource.Starting += (MediaStreamSource sender, MediaStreamSourceStartingEventArgs args) =>
-                {
-                    startedAt = DateTime.Now;
-                    //using (var frame = _frameGenerator.WaitForNewFrame()) { args.Request.SetActualStartPosition(frame.SystemRelativeTime); }
-                };
-                streamSource.Paused += (MediaStreamSource sender, object args) => { };
-                streamSource.SwitchStreamsRequested += (MediaStreamSource sender, MediaStreamSourceSwitchStreamsRequestedEventArgs args) => { };
-                #endregion
-
-                #region
-                var transcoder = new MediaTranscoder();
-                //transcoder.HardwareAccelerationEnabled = true;
-                #endregion
-
-                #region
-                var encodingProfile = new MediaEncodingProfile();
-                encodingProfile.Container.Subtype = "MPEG4";
-                encodingProfile.Video.Subtype = "H264";
-                encodingProfile.Video.Width = 1920;
-                encodingProfile.Video.Height = 1080;
-                encodingProfile.Video.Bitrate = 18000000;
-                encodingProfile.Video.FrameRate.Numerator = 30;
-                encodingProfile.Video.FrameRate.Denominator = 1;
-                encodingProfile.Video.PixelAspectRatio.Numerator = 1;
-                encodingProfile.Video.PixelAspectRatio.Denominator = 1;
-                #endregion
-
-                #region
-                var tempFolder = ApplicationData.Current.LocalCacheFolder;
-                var file = await tempFolder.CreateFileAsync($"{DateTime.Now:yyyyMMdd-HHmm-ss}.mp4", CreationCollisionOption.ReplaceExisting);
-                var outputStream = await file.OpenAsync(FileAccessMode.ReadWrite);
-                #endregion
-
-                #region
-                try
-                {
-                    var transcode = await transcoder.PrepareMediaStreamSourceTranscodeAsync(streamSource, outputStream, encodingProfile);
-                    if (!transcode.CanTranscode)
-                        throw new Exception($"transcode can not transcode");
-
-                    StartCaptureInternal(captureItem);
-
-                    // start streamSource
-                    await Task.Delay((int)TimeSpan.FromSeconds(5).TotalMilliseconds);
-                    var op = transcode.TranscodeAsync();
-                    //op.Progress += new AsyncActionProgressHandler<double>(TranscodeProgress);
-                    //op.Completed += new AsyncActionWithProgressCompletedHandler<double>(TranscodeComplete);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"error...{e}");
-                    throw;
-                }
-                #endregion
+                StartCaptureInternal(captureItem);
             }
         }
-
-        #region
-        public Queue<SurfaceWithInfo> frames = new();
-        DateTime startedAt = DateTime.Now;
-        Direct3D11CaptureFrame _lastFrame;
-        #endregion
-
-        #region
-        private void StreamSource_SampleRequested(MediaStreamSource sender, MediaStreamSourceSampleRequestedEventArgs args)
-        {
-            //if (isRecording)
-            //{
-            //Thread.Sleep(TimeSpan.FromMilliseconds(500));
-            //StreamSource_SampleRequested(sender, args);
-            try
-            {
-                if (frames.Count == 0)
-                {
-                    //args.Request.Sample = null;
-                    //return;
-                    Thread.Sleep(TimeSpan.FromMilliseconds(50));
-                    StreamSource_SampleRequested(sender, args);
-                }
-                var videoFrame = frames.Dequeue();
-
-                if (videoFrame == null)
-                {
-                    args.Request.Sample = null;
-                    return;
-                }
-
-                var timestamp = DateTime.Now - startedAt;
-
-                //var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
-                var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, timestamp);
-
-                samp.Processed += (MediaStreamSample sender, object args) => { };
-                args.Request.Sample = samp;
-            }
-            catch (Exception e)
-            {
-                args.Request.Sample = null;
-                return;
-            }
-            //}
-            //else
-            //{
-            //    //args.Request.Sample = null;
-            //    //return;
-            //    Thread.Sleep(TimeSpan.FromMilliseconds(500));
-            //    StreamSource_SampleRequested(sender, args);
-            //}
-
-        }
-
-
-        #endregion
 
         private async void StartCaptureInternal(GraphicsCaptureItem item)
         {
             // Stop the previous capture if we had one.
             StopCapture();
 
-            _item = item;
-            _lastSize = _item.Size;
-
-            //isRecording = true;
+            _captureItem = item;
+            _lastSize = _captureItem.Size;
 
             _framePool = Direct3D11CaptureFramePool.Create(
                 _canvasDevice,
                 Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized,
                 2,
-                _item.Size);
+                _captureItem.Size);
 
             _framePool.FrameArrived += OnFrameArrived;
 
-            _item.Closed += (s, a) => { StopCapture(); };
+            _captureItem.Closed += OnCaptureItemClosed;
 
-            _session = _framePool.CreateCaptureSession(_item);
+            _session = _framePool.CreateCaptureSession(_captureItem);
             _session.StartCapture();
         }
 
-        public void StopCapture()
+        private void OnCaptureItemClosed(GraphicsCaptureItem sender, object args)
         {
-            _session?.Dispose();
-            _framePool?.Dispose();
-            _item = null;
-            _session = null;
-            _framePool = null;
+            StopCapture();
         }
 
         private void OnFrameArrived(Direct3D11CaptureFramePool sender, object args)
         {
-            using (Direct3D11CaptureFrame frame = _framePool.TryGetNextFrame())
-            {
-                ProcessFrame(frame);
-            }
+            using Direct3D11CaptureFrame frame = _framePool.TryGetNextFrame();
+            ProcessFrame(frame);
         }
-
         private async void ProcessFrame(Direct3D11CaptureFrame frame)
         {
-            // Resize and device-lost leverage the same function on the
-            // Direct3D11CaptureFramePool. Refactoring it this way avoids
-            // throwing in the catch block below (device creation could always
-            // fail) along with ensuring that resize completes successfully and
-            // isn’t vulnerable to device-lost.
             bool needsReset = false;
             bool recreateDevice = false;
 
@@ -276,16 +135,9 @@ namespace ObjectDetection.WinApp.MVVM.View
 
             try
             {
-                _lastFrame = frame;
+                _currentFrame = frame.Surface;
 
-                // Take the D3D11 surface and draw it into a  
-                // Composition surface.
-
-                // Convert our D3D11 surface into a Win2D object.
                 CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_canvasDevice, frame.Surface);
-
-                _currentFrame = canvasBitmap;
-                // Helper that handles the drawing for us.
                 FillSurfaceWithBitmap(canvasBitmap);
 
                 //var sb = await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface);
@@ -296,51 +148,29 @@ namespace ObjectDetection.WinApp.MVVM.View
                 //previewImage.Source = sfbs;
                 //sb.Dispose();
 
-                #region
-                //var lastSampleTime = frame.SystemRelativeTime;
-                //var w = (int)canvasBitmap.Size.Width;
-                //var h = (int)canvasBitmap.Size.Height;
-                //var c = new VideoFrame(Windows.Graphics.Imaging.BitmapPixelFormat.Rgba8, w, h);
-
-                //var vf = VideoFrame.CreateWithDirect3D11Surface(frame.Surface);
-
-                //var videoFrame = new VideoFrame(canvasBitmap.GetPixelBytes(), videoHead);
-                //videoHead = videoHead.Add(TimeSpan.FromMilliseconds(_timeStepMillis));
                 frames.Enqueue(new SurfaceWithInfo()
                 {
                     Surface = frame.Surface,
                     SystemRelativeTime = frame.SystemRelativeTime
                 });
-                //  videoHead = videoHead.Add(TimeSpan.FromMilliseconds(_timeStepMillis));
-                #endregion
             }
-
-            // This is the device-lost convention for Win2D.
             catch (Exception e) when (_canvasDevice.IsDeviceLost(e.HResult))
             {
-                // We lost our graphics device. Recreate it and reset
-                // our Direct3D11CaptureFramePool.  
                 needsReset = true;
                 recreateDevice = true;
             }
 
             if (needsReset)
-            {
                 ResetFramePool(frame.ContentSize, recreateDevice);
-            }
         }
-
         private void FillSurfaceWithBitmap(CanvasBitmap canvasBitmap)
         {
             CanvasComposition.Resize(_surface, canvasBitmap.Size);
 
-            using (var session = CanvasComposition.CreateDrawingSession(_surface))
-            {
-                session.Clear(Colors.Transparent);
-                session.DrawImage(canvasBitmap);
-            }
+            using var session = CanvasComposition.CreateDrawingSession(_surface);
+            session.Clear(Colors.Transparent);
+            session.DrawImage(canvasBitmap);
         }
-
         private void ResetFramePool(SizeInt32 size, bool recreateDevice)
         {
             do
@@ -367,45 +197,147 @@ namespace ObjectDetection.WinApp.MVVM.View
             } while (_canvasDevice == null);
         }
 
-        private async void Button_ClickAsync(object sender, RoutedEventArgs e)
+        private async void Click_StartCapture(object sender, RoutedEventArgs e)
         {
-            await StartCaptureAsync();
-        }
-
-        private async void ScreenshotButton_ClickAsync(object sender, RoutedEventArgs e)
-        {
-            //isRecording = false;
-            this.frames.Enqueue(null);
-
-            StopCapture();
-
-            await SaveImageAsync(_screenshotFilename, _currentFrame);
-        }
-
-        private async Task SaveImageAsync(string filename, CanvasBitmap frame)
-        {
-            StorageFile file = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync(filename, CreationCollisionOption.GenerateUniqueName);
-
-            //StorageFolder pictureFolder = KnownFolders.SavedPictures;
-
-            //StorageFile file = await pictureFolder.CreateFileAsync(
-            //    filename,
-            //    CreationCollisionOption.ReplaceExisting);
-
-            using (var fileStream = await file.OpenAsync(FileAccessMode.ReadWrite))
+            if (!_isRecording)
             {
-                await frame.SaveAsync(fileStream, CanvasBitmapFileFormat.Png, 1f);
+
+                #region
+                var width = _captureItem.Size.Width;
+                var height = _captureItem.Size.Height;
+
+                VideoEncodingProperties videoProps = VideoEncodingProperties.CreateUncompressed(MediaEncodingSubtypes.Bgra8, (uint)width, (uint)height);
+                VideoStreamDescriptor videoDescriptor = new(videoProps);
+
+                MediaStreamSource streamSource = new(videoDescriptor);
+                streamSource.BufferTime = TimeSpan.FromSeconds(0);
+                streamSource.SampleRequested += StreamSource_SampleRequested;
+                streamSource.Closed += (MediaStreamSource sender, MediaStreamSourceClosedEventArgs args) => { };
+                streamSource.Starting += (MediaStreamSource sender, MediaStreamSourceStartingEventArgs args) =>
+                {
+                    startedAt = DateTime.Now;
+                    //using (var frame = _frameGenerator.WaitForNewFrame()) { args.Request.SetActualStartPosition(frame.SystemRelativeTime); }
+                };
+                streamSource.Paused += (MediaStreamSource sender, object args) => { };
+                streamSource.SwitchStreamsRequested += (MediaStreamSource sender, MediaStreamSourceSwitchStreamsRequestedEventArgs args) => { };
+                #endregion
+
+                #region
+                MediaEncodingProfile encodingProfile = new();
+                encodingProfile.Container.Subtype = "MPEG4";
+                encodingProfile.Video.Subtype = "H264";
+                encodingProfile.Video.Width = 1920;
+                encodingProfile.Video.Height = 1080;
+                encodingProfile.Video.Bitrate = 18000000;
+                encodingProfile.Video.FrameRate.Numerator = 30;
+                encodingProfile.Video.FrameRate.Denominator = 1;
+                encodingProfile.Video.PixelAspectRatio.Numerator = 1;
+                encodingProfile.Video.PixelAspectRatio.Denominator = 1;
+                #endregion
+
+                #region
+                var tempFolder = ApplicationData.Current.LocalCacheFolder;
+                var file = await tempFolder.CreateFileAsync($"{DateTime.Now:yyyyMMdd-HHmm-ss}.mp4", CreationCollisionOption.ReplaceExisting);
+                var outputStream = await file.OpenAsync(FileAccessMode.ReadWrite);
+                #endregion
+
+                #region
+                try
+                {
+                    MediaTranscoder transcoder = new();
+                    //transcoder.HardwareAccelerationEnabled = true;
+
+                    var transcode = await transcoder.PrepareMediaStreamSourceTranscodeAsync(streamSource, outputStream, encodingProfile);
+                    if (!transcode.CanTranscode)
+                        throw new Exception($"transcode can not transcode");
+
+                    // start streamSource
+                    await Task.Delay((int)TimeSpan.FromSeconds(5).TotalMilliseconds);
+                    var op = transcode.TranscodeAsync();
+                    //op.Progress += new AsyncActionProgressHandler<double>(TranscodeProgress);
+                    //op.Completed += new AsyncActionWithProgressCompletedHandler<double>(TranscodeComplete);
+
+                    _isRecording = true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"{ex}");
+                    throw;
+                }
+                #endregion
+
+            }
+        }
+        private void StreamSource_SampleRequested(MediaStreamSource sender, MediaStreamSourceSampleRequestedEventArgs args)
+        {
+            try
+            {
+                if (frames.Count == 0)
+                {
+                    Thread.Sleep(TimeSpan.FromMilliseconds(50));
+                    StreamSource_SampleRequested(sender, args);
+                }
+                var videoFrame = frames.Dequeue();
+
+                if (videoFrame == null)
+                {
+                    args.Request.Sample = null;
+                    return;
+                }
+
+                var timestamp = DateTime.Now - startedAt;
+                //var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
+                var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, timestamp);
+
+                samp.Processed += (MediaStreamSample sender, object args) => { };
+                args.Request.Sample = samp;
+            }
+            catch (Exception ex)
+            {
+                args.Request.Sample = null;
+                return;
             }
         }
 
-        private SurfaceWithInfo WaitForNewFrame()
+        private async void Click_StopCapture(object sender, RoutedEventArgs e)
         {
-            var result = new SurfaceWithInfo()
-            {
-                Surface = _lastFrame.Surface,
-                SystemRelativeTime = _lastFrame.SystemRelativeTime
-            };
-            return result;
+            _isRecording = false;
+            frames.Enqueue(null);
+            StopCapture();
         }
+
+        private async void Click_TakeScreenShot(object sender, RoutedEventArgs e)
+        {
+            await SaveImageAsync();
+        }
+
+        private async Task SaveImageAsync()
+        {
+            if (_currentFrame == null)
+                return;
+
+            CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_canvasDevice, _currentFrame);
+
+            StorageFile file = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync("screenShot.png", CreationCollisionOption.GenerateUniqueName);
+            using var fileStream = await file.OpenAsync(FileAccessMode.ReadWrite);
+            await canvasBitmap.SaveAsync(fileStream, CanvasBitmapFileFormat.Png, 1f);
+        }
+
+        public void StopCapture()
+        {
+            if (_captureItem != null)
+                _captureItem.Closed -= OnCaptureItemClosed;
+            _captureItem = null;
+
+            //_canvasDevice.Dispose();
+            //_canvasDevice = null;
+
+            _framePool?.Dispose();
+            _framePool = null;
+
+            _session?.Dispose();
+            _session = null;
+        }
+
     }
 }
