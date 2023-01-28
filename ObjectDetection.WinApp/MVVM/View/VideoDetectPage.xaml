@@ -9,6 +9,50 @@
 
     <Grid>
 
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"></RowDefinition>
+            <RowDefinition></RowDefinition>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="15" Padding="15,0,15,0">
+
+            <Button HorizontalAlignment="Left" VerticalAlignment="Center"
+                    ToolTipService.ToolTip="select image"
+                    Click="SelectVideo">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEB9F;"/>
+            </Button>
+
+            <Button HorizontalAlignment="Left" VerticalAlignment="Center"
+                    ToolTipService.ToolTip="start camera preview"
+                    Click="StartVideo">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE768;"/>
+            </Button>
+
+            <Button HorizontalAlignment="Left" VerticalAlignment="Center" 
+                    ToolTipService.ToolTip="stop camera preview"
+                    Click="StopVideo">
+                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE769;"/>
+            </Button>
+
+            <CheckBox IsChecked="false" Content="Is detect"/>
+
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" ZoomMode="Enabled" MinZoomFactor="1" MaxZoomFactor="5">
+
+            <Grid>
+
+                <Image Grid.Column="0" Grid.Row="0" Stretch="Uniform" x:Name="imagePreview"
+                       Width="640" Height="480" />
+
+            </Grid>
+
+        </ScrollViewer>
+
     </Grid>
 
 </Page>

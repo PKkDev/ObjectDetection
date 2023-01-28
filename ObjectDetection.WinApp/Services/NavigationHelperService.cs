@@ -17,7 +17,7 @@ namespace ObjectDetection.WinApp.Services
             { "Settings", typeof(SettingsPage) },
             { "PictureDetect", typeof(PictureDetectPage) },
             { "CameraDetect", typeof(CameraDetectPage) },
-            //{ "VideoDetect", typeof(VideoDetectPage) },
+            { "VideoDetect", typeof(VideoDetectPage) },
             { "ScreenCapture", typeof(ScreenCapturePage) }
         };
 

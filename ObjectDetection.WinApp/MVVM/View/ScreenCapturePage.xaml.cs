@@ -22,6 +22,13 @@ using Windows.Media.Core;
 using Windows.Media.MediaProperties;
 using Windows.Media.Transcoding;
 using Windows.Graphics.DirectX.Direct3D11;
+//
+using Windows.Media.Devices;
+using Windows.Devices.Enumeration;
+using System.Linq;
+using Windows.Media.Capture;
+using Windows.Media.Capture.Frames;
+using Windows.Devices.SerialCommunication;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -46,9 +53,64 @@ namespace ObjectDetection.WinApp.MVVM.View
         public bool _isRecording = false;
         #endregion
 
+        private LowLagMediaRecording MediaRecording;
+
         public ScreenCapturePage()
         {
             InitializeComponent();
+
+
+            Task t = Task.Run(async () =>
+            {
+                //var devicePicker = new DevicePicker();
+                //devicePicker.Filter.SupportedDeviceClasses.Add(DeviceClass.AudioRender);
+                //var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
+                //WinRT.Interop.InitializeWithWindow.Initialize(devicePicker, hwnd);
+                //Windows.Foundation.Rect rect = new Windows.Foundation.Rect(new Windows.Foundation.Point(0, 0), new Windows.Foundation.Point(0, 0));
+                //DeviceInformation di = await devicePicker.PickSingleDeviceAsync(rect);
+
+                //MediaStreamSource.
+
+                //var frameSourceGroups = await MediaFrameSourceGroup.FindAllAsync();
+                //MediaFrameSourceGroup selectedFrameSourceGroup = frameSourceGroups[0];
+                //MediaFrameSourceInfo frameSourceInfo = selectedFrameSourceGroup.SourceInfos[0];
+
+                string audioCaptureSelector = MediaDevice.GetAudioCaptureSelector();
+                var audioCapture = await DeviceInformation.FindAllAsync(audioCaptureSelector);
+
+                string audioRenderSelector = MediaDevice.GetAudioRenderSelector();
+                var audioRender = await DeviceInformation.FindAllAsync(audioRenderSelector);
+
+                string b = MediaDevice.GetDefaultAudioCaptureId(AudioDeviceRole.Communications);
+                DeviceInformation b1 = await DeviceInformation.CreateFromIdAsync(b);
+
+                string a = MediaDevice.GetDefaultAudioRenderId(AudioDeviceRole.Default);
+                DeviceInformation a1 = await DeviceInformation.CreateFromIdAsync(a);
+
+                var mediaCapture = new MediaCapture();
+                var settings = new MediaCaptureInitializationSettings
+                {
+                    AudioDeviceId = b1.Id,
+                    //SharingMode = MediaCaptureSharingMode.SharedReadOnly,
+                    StreamingCaptureMode = StreamingCaptureMode.Audio,
+                    //MemoryPreference = MediaCaptureMemoryPreference.Cpu
+                };
+                await mediaCapture.InitializeAsync(settings);
+
+                mediaCapture.RecordLimitationExceeded += (MediaCapture sender) => { };
+                mediaCapture.Failed += (MediaCapture sender, MediaCaptureFailedEventArgs errorEventArgs) =>
+                {
+                };
+
+                var localFolder = ApplicationData.Current.LocalCacheFolder;
+                StorageFile file = await localFolder.CreateFileAsync("audio.mp3", CreationCollisionOption.GenerateUniqueName);
+                MediaRecording = await mediaCapture.PrepareLowLagRecordToStorageFileAsync(MediaEncodingProfile.CreateMp3(AudioEncodingQuality.High), file);
+                await MediaRecording.StartAsync();
+            });
+
+            Task.WaitAll(t);
+
+
             Setup();
         }
 
@@ -148,11 +210,14 @@ namespace ObjectDetection.WinApp.MVVM.View
                 //previewImage.Source = sfbs;
                 //sb.Dispose();
 
-                frames.Enqueue(new SurfaceWithInfo()
+                if (_isRecording)
                 {
-                    Surface = frame.Surface,
-                    SystemRelativeTime = frame.SystemRelativeTime
-                });
+                    frames.Enqueue(new SurfaceWithInfo()
+                    {
+                        Surface = frame.Surface,
+                        SystemRelativeTime = frame.SystemRelativeTime
+                    });
+                }
             }
             catch (Exception e) when (_canvasDevice.IsDeviceLost(e.HResult))
             {
@@ -301,9 +366,12 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         private async void Click_StopCapture(object sender, RoutedEventArgs e)
         {
-            _isRecording = false;
-            frames.Enqueue(null);
-            StopCapture();
+
+            await MediaRecording.StopAsync();
+
+            //_isRecording = false;
+            //frames.Enqueue(null);
+            //StopCapture();
         }
 
         private async void Click_TakeScreenShot(object sender, RoutedEventArgs e)

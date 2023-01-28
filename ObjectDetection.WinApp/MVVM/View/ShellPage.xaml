@@ -23,19 +23,19 @@
 
                 <NavigationViewItem Tag="CameraDetect" Content="camera detect">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE722;"/>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE960;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
                 <NavigationViewItem Tag="VideoDetect" Content="video detect">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE722;"/>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE714;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
                 <NavigationViewItem Tag="ScreenCapture" Content="screen capture">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE722;"/>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xF7EE;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
