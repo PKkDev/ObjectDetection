@@ -1,5 +1,5 @@
 <Page
-    x:Class="ObjectDetection.WinApp.MVVM.View.CaptureTestPage"
+    x:Class="ObjectDetection.WinApp.MVVM.View.ScreenCapturePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:ObjectDetection.WinApp.MVVM.View"
@@ -41,5 +41,5 @@
         </Grid>
 
     </Grid>
-
+    
 </Page>

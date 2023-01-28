@@ -17,8 +17,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Remove="MVVM\View\CameraDetectPage.xaml" />
-    <None Remove="MVVM\View\CaptureTestPage.xaml" />
     <None Remove="MVVM\View\PictureDetectPage.xaml" />
+    <None Remove="MVVM\View\ScreenCapturePage.xaml" />
     <None Remove="MVVM\View\SettingsPage.xaml" />
     <None Remove="MVVM\View\ShellPage.xaml" />
   </ItemGroup>
@@ -82,7 +82,7 @@
     <None Update="Assets\YoloModel\modelYolo4Path.zip">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <Page Update="MVVM\View\CaptureTestPage.xaml">
+    <Page Update="MVVM\View\ScreenCapturePage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

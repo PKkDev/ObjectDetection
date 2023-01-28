@@ -25,7 +25,7 @@ using Windows.Graphics.DirectX.Direct3D11;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
-    public sealed partial class CaptureTestPage : Page
+    public sealed partial class ScreenCapturePage : Page
     {
         // Capture API objects.
         private SizeInt32 _lastSize;
@@ -46,7 +46,7 @@ namespace ObjectDetection.WinApp.MVVM.View
         public bool _isRecording = false;
         #endregion
 
-        public CaptureTestPage()
+        public ScreenCapturePage()
         {
             InitializeComponent();
             Setup();
