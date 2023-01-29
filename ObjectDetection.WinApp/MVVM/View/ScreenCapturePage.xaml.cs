@@ -34,6 +34,10 @@ using System.Data;
 using NAudio.Wave;
 using System.IO;
 using System.Text.RegularExpressions;
+using Windows.Media.Editing;
+using NAudio.Wave.SampleProviders;
+using Windows.Media;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -58,38 +62,45 @@ namespace ObjectDetection.WinApp.MVVM.View
         public bool _isRecording = false;
         #endregion
 
-        private LowLagMediaRecording MediaRecording;
+        //private LowLagMediaRecording MediaRecording;
 
-        private WasapiLoopbackCapture Capture;
+        private WasapiLoopbackCapture Capture = null;
+        private WaveFileWriter Writer = null;
+
+        StorageFile fileAudio;
+        StorageFile fileVideo;
 
         public ScreenCapturePage()
         {
             InitializeComponent();
 
-
             Task t = Task.Run(async () =>
             {
-                StorageFile file1 = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync("NAudio.mp3", CreationCollisionOption.GenerateUniqueName);
-                Capture = new WasapiLoopbackCapture();
-                var writer = new WaveFileWriter(file1.Path, Capture.WaveFormat);
+                //StorageFile file1 = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync("NAudio.mp3", CreationCollisionOption.GenerateUniqueName);
+                //Capture = new WasapiLoopbackCapture();
+                //var writer = new WaveFileWriter(file1.Path, Capture.WaveFormat);
 
-                Capture.DataAvailable += (s, a) =>
-                {
-                    writer.Write(a.Buffer, 0, a.BytesRecorded);
-                    //if (writer.Position > Capture.WaveFormat.AverageBytesPerSecond * 20)
-                    //{
-                    //    Capture.StopRecording();
-                    //}
-                };
+                //Capture.DataAvailable += (s, a) =>
+                //{
+                //    writer.Write(a.Buffer, 0, a.BytesRecorded);
+                //    //if (writer.Position > Capture.WaveFormat.AverageBytesPerSecond * 20)
+                //    //{
+                //    //    Capture.StopRecording();
+                //    //}
+                //};
 
-                Capture.RecordingStopped += (s, a) =>
-                {
-                    writer.Dispose();
-                    writer = null;
-                    Capture.Dispose();
-                };
+                //Capture.RecordingStopped += (s, a) =>
+                //{
+                //    writer.Dispose();
+                //    writer = null;
+                //    Capture.Dispose();
+                //};
 
-                Capture.StartRecording();
+                //Capture.StartRecording();
+
+
+
+
 
                 //var devicePicker = new DevicePicker();
                 //devicePicker.Filter.SupportedDeviceClasses.Add(DeviceClass.AudioRender);
@@ -104,37 +115,40 @@ namespace ObjectDetection.WinApp.MVVM.View
                 //MediaFrameSourceGroup selectedFrameSourceGroup = frameSourceGroups[0];
                 //MediaFrameSourceInfo frameSourceInfo = selectedFrameSourceGroup.SourceInfos[0];
 
-                string audioCaptureSelector = MediaDevice.GetAudioCaptureSelector();
-                var audioCapture = await DeviceInformation.FindAllAsync(audioCaptureSelector);
 
-                string audioRenderSelector = MediaDevice.GetAudioRenderSelector();
-                var audioRender = await DeviceInformation.FindAllAsync(audioRenderSelector);
 
-                string b = MediaDevice.GetDefaultAudioCaptureId(AudioDeviceRole.Communications);
-                DeviceInformation b1 = await DeviceInformation.CreateFromIdAsync(b);
 
-                string a = MediaDevice.GetDefaultAudioRenderId(AudioDeviceRole.Default);
-                DeviceInformation a1 = await DeviceInformation.CreateFromIdAsync(a);
+                //string audioCaptureSelector = MediaDevice.GetAudioCaptureSelector();
+                //var audioCapture = await DeviceInformation.FindAllAsync(audioCaptureSelector);
 
-                var mediaCapture = new MediaCapture();
-                var settings = new MediaCaptureInitializationSettings
-                {
-                    AudioDeviceId = b1.Id,
-                    //SharingMode = MediaCaptureSharingMode.SharedReadOnly,
-                    StreamingCaptureMode = StreamingCaptureMode.Audio,
-                    //MemoryPreference = MediaCaptureMemoryPreference.Cpu
-                };
-                await mediaCapture.InitializeAsync(settings);
+                //string audioRenderSelector = MediaDevice.GetAudioRenderSelector();
+                //var audioRender = await DeviceInformation.FindAllAsync(audioRenderSelector);
 
-                mediaCapture.RecordLimitationExceeded += (MediaCapture sender) => { };
-                mediaCapture.Failed += (MediaCapture sender, MediaCaptureFailedEventArgs errorEventArgs) =>
-                {
-                };
+                //string b = MediaDevice.GetDefaultAudioCaptureId(AudioDeviceRole.Communications);
+                //DeviceInformation b1 = await DeviceInformation.CreateFromIdAsync(b);
 
-                var localFolder = ApplicationData.Current.LocalCacheFolder;
-                StorageFile file = await localFolder.CreateFileAsync("audio.mp3", CreationCollisionOption.GenerateUniqueName);
-                MediaRecording = await mediaCapture.PrepareLowLagRecordToStorageFileAsync(MediaEncodingProfile.CreateMp3(AudioEncodingQuality.High), file);
-                await MediaRecording.StartAsync();
+                //string a = MediaDevice.GetDefaultAudioRenderId(AudioDeviceRole.Default);
+                //DeviceInformation a1 = await DeviceInformation.CreateFromIdAsync(a);
+
+                //var mediaCapture = new MediaCapture();
+                //var settings = new MediaCaptureInitializationSettings
+                //{
+                //    AudioDeviceId = b1.Id,
+                //    //SharingMode = MediaCaptureSharingMode.SharedReadOnly,
+                //    StreamingCaptureMode = StreamingCaptureMode.Audio,
+                //    //MemoryPreference = MediaCaptureMemoryPreference.Cpu
+                //};
+                //await mediaCapture.InitializeAsync(settings);
+
+                //mediaCapture.RecordLimitationExceeded += (MediaCapture sender) => { };
+                //mediaCapture.Failed += (MediaCapture sender, MediaCaptureFailedEventArgs errorEventArgs) =>
+                //{
+                //};
+
+                //var localFolder = ApplicationData.Current.LocalCacheFolder;
+                //StorageFile file = await localFolder.CreateFileAsync("audio.mp3", CreationCollisionOption.GenerateUniqueName);
+                //MediaRecording = await mediaCapture.PrepareLowLagRecordToStorageFileAsync(MediaEncodingProfile.CreateMp3(AudioEncodingQuality.High), file);
+                //await MediaRecording.StartAsync();
             });
 
             Task.WaitAll(t);
@@ -228,8 +242,8 @@ namespace ObjectDetection.WinApp.MVVM.View
             {
                 _currentFrame = frame.Surface;
 
-                CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_canvasDevice, frame.Surface);
-                FillSurfaceWithBitmap(canvasBitmap);
+                //CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_canvasDevice, frame.Surface);
+                //FillSurfaceWithBitmap(canvasBitmap);
 
                 //var sb = await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface);
                 //if (sb.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || sb.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
@@ -295,6 +309,30 @@ namespace ObjectDetection.WinApp.MVVM.View
         {
             if (!_isRecording)
             {
+                var nowDate = $"{DateTime.Now:yyyyMMdd-HHmm-ss}";
+
+                #region
+
+                fileAudio = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync($"{nowDate}.mp3", CreationCollisionOption.GenerateUniqueName);
+                Capture = new WasapiLoopbackCapture();
+                Writer = new WaveFileWriter(fileAudio.Path, Capture.WaveFormat);
+
+                Capture.DataAvailable += (s, a) =>
+                {
+                    Writer.Write(a.Buffer, 0, a.BytesRecorded);
+                    //if (writer.Position > Capture.WaveFormat.AverageBytesPerSecond * 20)
+                    //{ Capture.StopRecording(); }
+                };
+
+                Capture.RecordingStopped += (s, a) =>
+                {
+                    Writer?.Dispose();
+                    Writer = null;
+                    Capture?.Dispose();
+                    Capture = null;
+                };
+
+                #endregion
 
                 #region
                 var width = _captureItem.Size.Width;
@@ -310,7 +348,9 @@ namespace ObjectDetection.WinApp.MVVM.View
                 streamSource.Starting += (MediaStreamSource sender, MediaStreamSourceStartingEventArgs args) =>
                 {
                     startedAt = DateTime.Now;
-                    //using (var frame = _frameGenerator.WaitForNewFrame()) { args.Request.SetActualStartPosition(frame.SystemRelativeTime); }
+                    while (frames.Count == 0) { }
+                    var videoFrame = frames.Dequeue();
+                    args.Request.SetActualStartPosition(videoFrame.SystemRelativeTime);
                 };
                 streamSource.Paused += (MediaStreamSource sender, object args) => { };
                 streamSource.SwitchStreamsRequested += (MediaStreamSource sender, MediaStreamSourceSwitchStreamsRequestedEventArgs args) => { };
@@ -331,8 +371,8 @@ namespace ObjectDetection.WinApp.MVVM.View
 
                 #region
                 var tempFolder = ApplicationData.Current.LocalCacheFolder;
-                var file = await tempFolder.CreateFileAsync($"{DateTime.Now:yyyyMMdd-HHmm-ss}.mp4", CreationCollisionOption.ReplaceExisting);
-                var outputStream = await file.OpenAsync(FileAccessMode.ReadWrite);
+                fileVideo = await tempFolder.CreateFileAsync($"{nowDate}.mp4", CreationCollisionOption.ReplaceExisting);
+                var outputStream = await fileVideo.OpenAsync(FileAccessMode.ReadWrite);
                 #endregion
 
                 #region
@@ -346,10 +386,20 @@ namespace ObjectDetection.WinApp.MVVM.View
                         throw new Exception($"transcode can not transcode");
 
                     // start streamSource
-                    await Task.Delay((int)TimeSpan.FromSeconds(5).TotalMilliseconds);
+                    //await Task.Delay((int)TimeSpan.FromSeconds(5).TotalMilliseconds);
                     var op = transcode.TranscodeAsync();
                     //op.Progress += new AsyncActionProgressHandler<double>(TranscodeProgress);
                     //op.Completed += new AsyncActionWithProgressCompletedHandler<double>(TranscodeComplete);
+
+
+                    var sine20Seconds = new SignalGenerator()
+                    { Gain = 0.2, Frequency = 500, Type = SignalGeneratorType.Sin }
+                    .Take(TimeSpan.FromSeconds(2));
+                    using var wo = new WaveOutEvent();
+                    wo.Init(sine20Seconds);
+                    wo.Play();
+
+                    Capture.StartRecording();
 
                     _isRecording = true;
                 }
@@ -366,6 +416,24 @@ namespace ObjectDetection.WinApp.MVVM.View
         {
             try
             {
+                //if (_isRecording)
+                //{
+                //    while (frames.Count == 0) { }
+                //    lock (frames)
+                //    {
+                //        var videoFrame = frames.Dequeue();
+                //        var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
+                //        args.Request.Sample = samp;
+                //    }
+                //}
+                //else
+                //{
+                //    args.Request.Sample = null;
+                //    StopCapture();
+                //}
+
+
+
                 if (frames.Count == 0)
                 {
                     Thread.Sleep(TimeSpan.FromMilliseconds(50));
@@ -375,19 +443,21 @@ namespace ObjectDetection.WinApp.MVVM.View
 
                 if (videoFrame == null)
                 {
+                    Capture?.StopRecording();
                     args.Request.Sample = null;
                     return;
                 }
 
-                var timestamp = DateTime.Now - startedAt;
-                //var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
-                var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, timestamp);
+                //var timestamp = DateTime.Now - startedAt;
+                var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
+                //var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, timestamp);
 
                 samp.Processed += (MediaStreamSample sender, object args) => { };
                 args.Request.Sample = samp;
             }
             catch (Exception ex)
             {
+                Capture?.StopRecording();
                 args.Request.Sample = null;
                 return;
             }
@@ -395,18 +465,45 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         private async void Click_StopCapture(object sender, RoutedEventArgs e)
         {
-            Capture.StopRecording();
+
 
             //await MediaRecording.StopAsync();
 
-            //_isRecording = false;
-            //frames.Enqueue(null);
-            //StopCapture();
+            _isRecording = false;
+            frames.Enqueue(null);
+
+            StopCapture();
+
+            //await Task.Delay(TimeSpan.FromSeconds(10));
+
+            await SaveToUnionFile();
         }
 
         private async void Click_TakeScreenShot(object sender, RoutedEventArgs e)
         {
             await SaveImageAsync();
+        }
+
+        private async Task SaveToUnionFile()
+        {
+            if (fileAudio != null && fileVideo != null)
+            {
+                var fileUnionName = $"{DateTime.Now:yyyyMMdd-HHmm-ss}_unioun.mp4";
+                var fileUnion = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync(fileUnionName, CreationCollisionOption.GenerateUniqueName);
+
+                MediaComposition muxedStream = new MediaComposition();
+
+                BackgroundAudioTrack audioTrack = await BackgroundAudioTrack.CreateFromFileAsync(fileAudio);
+                MediaClip videoTrack = await MediaClip.CreateFromFileAsync(fileVideo);
+
+                muxedStream.BackgroundAudioTracks.Add(audioTrack);
+                muxedStream.Clips.Add(videoTrack);
+
+                await muxedStream.RenderToFileAsync(fileUnion, MediaTrimmingPreference.Precise);
+
+                MediaStreamSource mss = muxedStream.GenerateMediaStreamSource();
+                mpElement.Source = MediaSource.CreateFromMediaStreamSource(mss);
+            }
         }
 
         private async Task SaveImageAsync()
