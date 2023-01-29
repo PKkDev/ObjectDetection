@@ -58,7 +58,6 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         #region
         public Queue<SurfaceWithInfo> frames = new();
-        public DateTime startedAt = DateTime.Now;
         public bool _isRecording = false;
         #endregion
 
@@ -347,7 +346,6 @@ namespace ObjectDetection.WinApp.MVVM.View
                 streamSource.Closed += (MediaStreamSource sender, MediaStreamSourceClosedEventArgs args) => { };
                 streamSource.Starting += (MediaStreamSource sender, MediaStreamSourceStartingEventArgs args) =>
                 {
-                    startedAt = DateTime.Now;
                     while (frames.Count == 0) { }
                     var videoFrame = frames.Dequeue();
                     args.Request.SetActualStartPosition(videoFrame.SystemRelativeTime);
@@ -447,8 +445,6 @@ namespace ObjectDetection.WinApp.MVVM.View
                     args.Request.Sample = null;
                     return;
                 }
-
-                //var timestamp = DateTime.Now - startedAt;
                 var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
                 //var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, timestamp);
 
