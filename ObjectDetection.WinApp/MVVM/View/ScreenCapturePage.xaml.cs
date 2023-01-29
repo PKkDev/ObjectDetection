@@ -29,6 +29,11 @@ using System.Linq;
 using Windows.Media.Capture;
 using Windows.Media.Capture.Frames;
 using Windows.Devices.SerialCommunication;
+using System.Data;
+//
+using NAudio.Wave;
+using System.IO;
+using System.Text.RegularExpressions;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -55,6 +60,8 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         private LowLagMediaRecording MediaRecording;
 
+        private WasapiLoopbackCapture Capture;
+
         public ScreenCapturePage()
         {
             InitializeComponent();
@@ -62,6 +69,28 @@ namespace ObjectDetection.WinApp.MVVM.View
 
             Task t = Task.Run(async () =>
             {
+                StorageFile file1 = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync("NAudio.mp3", CreationCollisionOption.GenerateUniqueName);
+                Capture = new WasapiLoopbackCapture();
+                var writer = new WaveFileWriter(file1.Path, Capture.WaveFormat);
+
+                Capture.DataAvailable += (s, a) =>
+                {
+                    writer.Write(a.Buffer, 0, a.BytesRecorded);
+                    //if (writer.Position > Capture.WaveFormat.AverageBytesPerSecond * 20)
+                    //{
+                    //    Capture.StopRecording();
+                    //}
+                };
+
+                Capture.RecordingStopped += (s, a) =>
+                {
+                    writer.Dispose();
+                    writer = null;
+                    Capture.Dispose();
+                };
+
+                Capture.StartRecording();
+
                 //var devicePicker = new DevicePicker();
                 //devicePicker.Filter.SupportedDeviceClasses.Add(DeviceClass.AudioRender);
                 //var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
@@ -366,8 +395,9 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         private async void Click_StopCapture(object sender, RoutedEventArgs e)
         {
+            Capture.StopRecording();
 
-            await MediaRecording.StopAsync();
+            //await MediaRecording.StopAsync();
 
             //_isRecording = false;
             //frames.Enqueue(null);
