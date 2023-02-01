@@ -34,17 +34,17 @@
 
         </StackPanel>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" >
 
-            <ScrollViewer>
+            <ScrollViewer x:Name="gridToPreview">
 
-                <StackPanel Orientation="Vertical">
+                <!--<StackPanel Orientation="Vertical">
 
-                    <Viewbox x:Name="gridToPreview"></Viewbox>
+                    <Viewbox Height="400" Canvas.ZIndex="5" ></Viewbox>
 
                     <MediaPlayerElement x:Name="mpElement" AutoPlay="True" AreTransportControlsEnabled="True"></MediaPlayerElement>
 
-                </StackPanel>
+                </StackPanel>-->
 
             </ScrollViewer>
 

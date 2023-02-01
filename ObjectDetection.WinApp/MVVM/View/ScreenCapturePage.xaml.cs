@@ -35,6 +35,8 @@ using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Devices.PointOfService;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.Graphics.Canvas.Effects;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -55,6 +57,7 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         #region
         public Queue<SurfaceWithInfo> frames = new();
+        public Queue<IDirect3DSurface> framesBytes = new();
         public bool _isRecording = false;
         #endregion
 
@@ -149,7 +152,6 @@ namespace ObjectDetection.WinApp.MVVM.View
                 //MediaRecording = await mediaCapture.PrepareLowLagRecordToStorageFileAsync(MediaEncodingProfile.CreateMp3(AudioEncodingQuality.High), file);
                 //await MediaRecording.StartAsync();
             });
-
             Task.WaitAll(t);
 
             connection = new HubConnectionBuilder()
@@ -167,6 +169,65 @@ namespace ObjectDetection.WinApp.MVVM.View
                 await connection.StartAsync();
             });
             t1.Wait();
+
+            Task t2 = Task.Run(async () =>
+            {
+                try
+                {
+                    while (true)
+                    {
+                        while (framesBytes.Count == 0) { }
+
+                        var bytes = framesBytes.Dequeue();
+
+                        SoftwareBitmap softwareBitmap = null;
+                        softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(bytes);
+                        if (softwareBitmap.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || softwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
+                            softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+
+                        float newWidth = softwareBitmap.PixelWidth / 5;
+                        float newHeight = softwareBitmap.PixelHeight / 5;
+                        using (var resourceCreator = CanvasDevice.GetSharedDevice())
+                        using (var canvasBitmap = CanvasBitmap.CreateFromSoftwareBitmap(resourceCreator, softwareBitmap))
+                        using (var canvasRenderTarget = new CanvasRenderTarget(resourceCreator, newWidth, newHeight, canvasBitmap.Dpi))
+                        using (var drawingSession = canvasRenderTarget.CreateDrawingSession())
+                        using (var scaleEffect = new ScaleEffect())
+                        {
+                            scaleEffect.Source = canvasBitmap;
+                            scaleEffect.Scale = new System.Numerics.Vector2(newWidth / softwareBitmap.PixelWidth, newHeight / softwareBitmap.PixelHeight);
+                            drawingSession.DrawImage(scaleEffect);
+                            drawingSession.Flush();
+
+                            var pixels = canvasRenderTarget.GetPixelBytes();
+                            var c = pixels.Count(x => x != 0);
+
+                            if (pixels.Any())
+                                await connection.InvokeAsync("UploadStream", pixels);
+
+                            //var news = SoftwareBitmap.CreateCopyFromBuffer(canvasRenderTarget.GetPixelBytes().AsBuffer(), BitmapPixelFormat.Bgra8, (int)newWidth, (int)newHeight, BitmapAlphaMode.Premultiplied);
+                        }
+
+                        //var resourceCreator = CanvasDevice.GetSharedDevice();
+                        //var canvasBitmap = CanvasBitmap.CreateFromSoftwareBitmap(resourceCreator, softwareBitmap);
+                        //var canvasRenderTarget = new CanvasRenderTarget(resourceCreator, (int)(softwareBitmap.PixelWidth), (int)(softwareBitmap.PixelHeight), 96);
+
+                        //using var cds = canvasRenderTarget.CreateDrawingSession();
+                        //cds.DrawImage(canvasBitmap, canvasRenderTarget.Bounds);
+
+                        //var pixels = canvasRenderTarget.GetPixelBytes();
+                        //var c = pixels.Count(x => x != 0);
+
+                        //if (pixels.Any())
+                        //    await connection.InvokeAsync("UploadStream", pixels);
+
+                        softwareBitmap?.Dispose();
+                    }
+                }
+                catch (Exception ex)
+                {
+
+                }
+            });
 
             Setup();
         }
@@ -218,81 +279,74 @@ namespace ObjectDetection.WinApp.MVVM.View
             // Stop the previous capture if we had one.
             StopCapture();
 
-            var size = new SizeInt32() { Width = 320, Height = 240 };
-
             _captureItem = item;
-            //_lastSize = _captureItem.Size;
-            _lastSize = size;
+            _lastSize = _captureItem.Size;
 
             _framePool = Direct3D11CaptureFramePool.Create(
                 _canvasDevice,
                 Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized,
                 2,
-                size);
+                _captureItem.Size);
 
-            _framePool.FrameArrived += OnFrameArrived;
+            _framePool.FrameArrived += (Direct3D11CaptureFramePool sender, object args) =>
+            {
+                using Direct3D11CaptureFrame frame = _framePool.TryGetNextFrame();
+                ProcessFrame(frame);
+            };
 
-            _captureItem.Closed += OnCaptureItemClosed;
+            _captureItem.Closed += (GraphicsCaptureItem sender, object args) =>
+            {
+                StopCapture();
+            };
 
             _session = _framePool.CreateCaptureSession(_captureItem);
             _session.StartCapture();
         }
 
-        private void OnCaptureItemClosed(GraphicsCaptureItem sender, object args)
-        {
-            StopCapture();
-        }
-
-        private void OnFrameArrived(Direct3D11CaptureFramePool sender, object args)
-        {
-            using Direct3D11CaptureFrame frame = _framePool.TryGetNextFrame();
-            ProcessFrame(frame);
-        }
-        private async void ProcessFrame(Direct3D11CaptureFrame frame)
+        private void ProcessFrame(Direct3D11CaptureFrame frame)
         {
             bool needsReset = false;
             bool recreateDevice = false;
 
             if ((frame.ContentSize.Width != _lastSize.Width) || (frame.ContentSize.Height != _lastSize.Height))
             {
-                //needsReset = true;
-                //_lastSize = frame.ContentSize;
+                needsReset = true;
+                _lastSize = frame.ContentSize;
             }
-
 
             try
             {
                 _currentFrame = frame.Surface;
 
-                //CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_canvasDevice, frame.Surface);
-                //FillSurfaceWithBitmap(canvasBitmap);
+                CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_canvasDevice, frame.Surface);
 
-                //var array = canvasBitmap.GetPixelBytes();
+                #region FillSurfaceWithBitmap
 
-                //bytes = canvasBitmap.GetPixelBytes();
+                CanvasComposition.Resize(_surface, canvasBitmap.Size);
 
+                using var session = CanvasComposition.CreateDrawingSession(_surface);
+                session.Clear(Colors.Transparent);
+                session.DrawImage(canvasBitmap);
 
+                #endregion FillSurfaceWithBitmap
 
+                //var canvasRenderTarget = new CanvasRenderTarget(_canvasDevice, (int)(canvasBitmap.Bounds.Width / 5), (int)(canvasBitmap.Bounds.Height / 5), canvasBitmap.Dpi);
+                //using var cds = canvasRenderTarget.CreateDrawingSession();
+                //cds.DrawImage(canvasBitmap, canvasRenderTarget.Bounds);
+                //var pixelBytes = canvasRenderTarget.GetPixelBytes();
+                //var count = pixelBytes.Count(x => x != 0);
+                //framesBytes.Enqueue(pixelBytes);
 
-
-
-                //var sb = await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface);
-                //if (sb.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || sb.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
-                //    sb = SoftwareBitmap.Convert(sb, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
-                //var sfbs = new SoftwareBitmapSource();
-                //await sfbs.SetBitmapAsync(sb);
-                //previewImage.Source = sfbs;
-                //sb.Dispose();
+                framesBytes.Enqueue(frame.Surface);
 
                 if (_isRecording)
                 {
                     frames.Enqueue(new SurfaceWithInfo()
                     {
                         Surface = frame.Surface,
-                        SystemRelativeTime = frame.SystemRelativeTime
+                        SystemRelativeTime = frame.SystemRelativeTime,
                     });
                 }
-
             }
             catch (Exception e) when (_canvasDevice.IsDeviceLost(e.HResult))
             {
@@ -302,16 +356,6 @@ namespace ObjectDetection.WinApp.MVVM.View
 
             if (needsReset)
                 ResetFramePool(frame.ContentSize, recreateDevice);
-
-
-        }
-        private void FillSurfaceWithBitmap(CanvasBitmap canvasBitmap)
-        {
-            CanvasComposition.Resize(_surface, canvasBitmap.Size);
-
-            using var session = CanvasComposition.CreateDrawingSession(_surface);
-            session.Clear(Colors.Transparent);
-            session.DrawImage(canvasBitmap);
         }
         private void ResetFramePool(SizeInt32 size, bool recreateDevice)
         {
@@ -393,9 +437,9 @@ namespace ObjectDetection.WinApp.MVVM.View
                 MediaEncodingProfile encodingProfile = new();
                 encodingProfile.Container.Subtype = "MPEG4";
                 encodingProfile.Video.Subtype = "H264";
-                encodingProfile.Video.Width = 640;
-                encodingProfile.Video.Height = 480;
-                encodingProfile.Video.Bitrate = 9000000;
+                encodingProfile.Video.Width = 1920;
+                encodingProfile.Video.Height = 1080;
+                encodingProfile.Video.Bitrate = 18000000;
                 encodingProfile.Video.FrameRate.Numerator = 30;
                 encodingProfile.Video.FrameRate.Denominator = 1;
                 encodingProfile.Video.PixelAspectRatio.Numerator = 1;
@@ -466,13 +510,13 @@ namespace ObjectDetection.WinApp.MVVM.View
                 //}
 
 
-
-                if (frames.Count == 0)
-                {
-                    Thread.Sleep(TimeSpan.FromMilliseconds(50));
-                    StreamSource_SampleRequested(sender, args);
-                }
-                var videoFrame = frames.Dequeue();
+                while (frames.Count == 0) { }
+                //if (frames.Count == 0)
+                //{
+                //    Thread.Sleep(TimeSpan.FromMilliseconds(50));
+                //    StreamSource_SampleRequested(sender, args);
+                //}
+                SurfaceWithInfo videoFrame = frames.Dequeue();
 
                 if (videoFrame == null)
                 {
@@ -481,33 +525,71 @@ namespace ObjectDetection.WinApp.MVVM.View
                     return;
                 }
 
-                Task t = Task.Run(async () =>
-                {
-                    var memoryRandomAccessStream = new InMemoryRandomAccessStream();
-                    var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, memoryRandomAccessStream);
-                    var softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(videoFrame.Surface);
-                    encoder.SetSoftwareBitmap(softwareBitmap);
-                    encoder.IsThumbnailGenerated = false;
-                    await encoder.FlushAsync();
+                //Task t = Task.Run(async () =>
+                //{
+                //    SoftwareBitmap softwareBitmap = null;
+                //    try
+                //    {
+                //        //var memoryRandomAccessStream = new InMemoryRandomAccessStream();
+                //        //var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, memoryRandomAccessStream);
+                //        softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(videoFrame.Surface);
+                //        if (softwareBitmap.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || softwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
+                //            softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
 
-                    try
-                    {
-                        bytes = new byte[memoryRandomAccessStream.Size];
-                        await memoryRandomAccessStream.ReadAsync(bytes.AsBuffer(), (uint)memoryRandomAccessStream.Size, InputStreamOptions.None);
+                //        var canvasBitmap = CanvasBitmap.CreateFromSoftwareBitmap(_canvasDevice, softwareBitmap);
+                //        //var pixelBytes1 = canvasBitmap.GetPixelBytes();
+                //        var canvasRenderTarget = new CanvasRenderTarget(_canvasDevice, (int)(softwareBitmap.PixelWidth / 10), (int)(softwareBitmap.PixelHeight / 10), 96);
 
-                        if (bytes.Any())
-                            await connection.InvokeAsync("UploadStream", bytes);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine(ex.Message);
-                    }
-                    finally
-                    {
-                        //softwareBitmap?.Dispose();
-                        //memoryRandomAccessStream?.Dispose();
-                    }
-                });
+                //        using var cds = canvasRenderTarget.CreateDrawingSession();
+                //        cds.DrawImage(canvasBitmap, canvasRenderTarget.Bounds);
+
+                //        var pixelBytes = canvasRenderTarget.GetPixelBytes();
+
+
+                //        //var writeableBitmap = new WriteableBitmap((int)(softwareBitmap.PixelWidth * 0.5), (int)(softwareBitmap.PixelHeight * 0.5));
+                //        //using var stream = writeableBitmap.PixelBuffer.AsStream();
+
+                //        //await stream.WriteAsync(pixelBytes, 0, pixelBytes.Length);
+
+
+                //        //var scaledSoftwareBitmap = new SoftwareBitmap(BitmapPixelFormat.Bgra8, (int)(softwareBitmap.PixelWidth * 0.5), (int)(softwareBitmap.PixelHeight * 0.5));
+                //        //scaledSoftwareBitmap.CopyFromBuffer(writeableBitmap.PixelBuffer);
+
+                //        //if (pixelBytes.Any())
+                //        //    await connection.InvokeAsync("UploadStream", pixelBytes);
+
+                //    }
+                //    catch (Exception e)
+                //    {
+
+                //    }
+                //    finally
+                //    {
+                //        softwareBitmap?.Dispose();
+                //    }
+
+                //    // encoder.SetSoftwareBitmap(softwareBitmap);
+                //    // encoder.IsThumbnailGenerated = false;
+                //    // await encoder.FlushAsync();
+
+                //    try
+                //    {
+                //        //bytes = new byte[memoryRandomAccessStream.Size];
+                //        //await memoryRandomAccessStream.ReadAsync(bytes.AsBuffer(), (uint)memoryRandomAccessStream.Size, InputStreamOptions.None);
+
+                //        //if (videoFrame.Bytes.Any())
+                //        //    await connection.InvokeAsync("UploadStream", videoFrame.Bytes);
+                //    }
+                //    catch (Exception ex)
+                //    {
+                //        System.Diagnostics.Debug.WriteLine(ex.Message);
+                //    }
+                //    finally
+                //    {
+                //        //softwareBitmap?.Dispose();
+                //        //memoryRandomAccessStream?.Dispose();
+                //    }
+                //});
 
                 var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
                 //var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, timestamp);
@@ -557,8 +639,8 @@ namespace ObjectDetection.WinApp.MVVM.View
 
                 await muxedStream.RenderToFileAsync(fileUnion, MediaTrimmingPreference.Precise);
 
-                MediaStreamSource mss = muxedStream.GenerateMediaStreamSource();
-                mpElement.Source = MediaSource.CreateFromMediaStreamSource(mss);
+                //MediaStreamSource mss = muxedStream.GenerateMediaStreamSource();
+                //mpElement.Source = MediaSource.CreateFromMediaStreamSource(mss);
             }
         }
 
@@ -576,8 +658,8 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         public void StopCapture()
         {
-            if (_captureItem != null)
-                _captureItem.Closed -= OnCaptureItemClosed;
+            //if (_captureItem != null)
+            //    _captureItem.Closed -= OnCaptureItemClosed;
             _captureItem = null;
 
             //_canvasDevice.Dispose();
