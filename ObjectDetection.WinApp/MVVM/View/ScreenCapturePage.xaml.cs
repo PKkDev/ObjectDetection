@@ -23,21 +23,18 @@ using Windows.Media.MediaProperties;
 using Windows.Media.Transcoding;
 using Windows.Graphics.DirectX.Direct3D11;
 //
-using Windows.Media.Devices;
-using Windows.Devices.Enumeration;
 using System.Linq;
-using Windows.Media.Capture;
-using Windows.Media.Capture.Frames;
-using Windows.Devices.SerialCommunication;
-using System.Data;
 //
 using NAudio.Wave;
-using System.IO;
-using System.Text.RegularExpressions;
 using Windows.Media.Editing;
 using NAudio.Wave.SampleProviders;
-using Windows.Media;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
+//
+using Microsoft.AspNetCore.SignalR.Client;
+using Newtonsoft.Json.Linq;
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Devices.PointOfService;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -68,6 +65,9 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         StorageFile fileAudio;
         StorageFile fileVideo;
+
+
+        HubConnection connection;
 
         public ScreenCapturePage()
         {
@@ -152,9 +152,28 @@ namespace ObjectDetection.WinApp.MVVM.View
 
             Task.WaitAll(t);
 
+            connection = new HubConnectionBuilder()
+                .WithUrl("https://localhost:7139/video", Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets)
+                .Build();
+
+            connection.Closed += async (error) =>
+            {
+                await Task.Delay(new Random().Next(0, 5) * 1000);
+                await connection.StartAsync();
+            };
+
+            Task t1 = Task.Run(async () =>
+            {
+                await connection.StartAsync();
+            });
+            t1.Wait();
 
             Setup();
         }
+
+        // Locks
+        private SemaphoreSlim m_lock = new SemaphoreSlim(1);
+        byte[] bytes;
 
         private void Setup()
         {
@@ -199,14 +218,17 @@ namespace ObjectDetection.WinApp.MVVM.View
             // Stop the previous capture if we had one.
             StopCapture();
 
+            var size = new SizeInt32() { Width = 320, Height = 240 };
+
             _captureItem = item;
-            _lastSize = _captureItem.Size;
+            //_lastSize = _captureItem.Size;
+            _lastSize = size;
 
             _framePool = Direct3D11CaptureFramePool.Create(
                 _canvasDevice,
                 Windows.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized,
                 2,
-                _captureItem.Size);
+                size);
 
             _framePool.FrameArrived += OnFrameArrived;
 
@@ -233,9 +255,10 @@ namespace ObjectDetection.WinApp.MVVM.View
 
             if ((frame.ContentSize.Width != _lastSize.Width) || (frame.ContentSize.Height != _lastSize.Height))
             {
-                needsReset = true;
-                _lastSize = frame.ContentSize;
+                //needsReset = true;
+                //_lastSize = frame.ContentSize;
             }
+
 
             try
             {
@@ -243,6 +266,15 @@ namespace ObjectDetection.WinApp.MVVM.View
 
                 //CanvasBitmap canvasBitmap = CanvasBitmap.CreateFromDirect3D11Surface(_canvasDevice, frame.Surface);
                 //FillSurfaceWithBitmap(canvasBitmap);
+
+                //var array = canvasBitmap.GetPixelBytes();
+
+                //bytes = canvasBitmap.GetPixelBytes();
+
+
+
+
+
 
                 //var sb = await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface);
                 //if (sb.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || sb.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
@@ -260,6 +292,7 @@ namespace ObjectDetection.WinApp.MVVM.View
                         SystemRelativeTime = frame.SystemRelativeTime
                     });
                 }
+
             }
             catch (Exception e) when (_canvasDevice.IsDeviceLost(e.HResult))
             {
@@ -269,6 +302,8 @@ namespace ObjectDetection.WinApp.MVVM.View
 
             if (needsReset)
                 ResetFramePool(frame.ContentSize, recreateDevice);
+
+
         }
         private void FillSurfaceWithBitmap(CanvasBitmap canvasBitmap)
         {
@@ -358,9 +393,9 @@ namespace ObjectDetection.WinApp.MVVM.View
                 MediaEncodingProfile encodingProfile = new();
                 encodingProfile.Container.Subtype = "MPEG4";
                 encodingProfile.Video.Subtype = "H264";
-                encodingProfile.Video.Width = 1920;
-                encodingProfile.Video.Height = 1080;
-                encodingProfile.Video.Bitrate = 18000000;
+                encodingProfile.Video.Width = 640;
+                encodingProfile.Video.Height = 480;
+                encodingProfile.Video.Bitrate = 9000000;
                 encodingProfile.Video.FrameRate.Numerator = 30;
                 encodingProfile.Video.FrameRate.Denominator = 1;
                 encodingProfile.Video.PixelAspectRatio.Numerator = 1;
@@ -390,14 +425,14 @@ namespace ObjectDetection.WinApp.MVVM.View
                     //op.Completed += new AsyncActionWithProgressCompletedHandler<double>(TranscodeComplete);
 
 
-                    var sine20Seconds = new SignalGenerator()
-                    { Gain = 0.2, Frequency = 500, Type = SignalGeneratorType.Sin }
-                    .Take(TimeSpan.FromSeconds(2));
-                    using var wo = new WaveOutEvent();
-                    wo.Init(sine20Seconds);
-                    wo.Play();
+                    //var sine20Seconds = new SignalGenerator()
+                    //{ Gain = 0.2, Frequency = 500, Type = SignalGeneratorType.Sin }
+                    //.Take(TimeSpan.FromSeconds(2));
+                    //using var wo = new WaveOutEvent();
+                    //wo.Init(sine20Seconds);
+                    //wo.Play();
 
-                    Capture.StartRecording();
+                    //Capture.StartRecording();
 
                     _isRecording = true;
                 }
@@ -445,6 +480,35 @@ namespace ObjectDetection.WinApp.MVVM.View
                     args.Request.Sample = null;
                     return;
                 }
+
+                Task t = Task.Run(async () =>
+                {
+                    var memoryRandomAccessStream = new InMemoryRandomAccessStream();
+                    var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, memoryRandomAccessStream);
+                    var softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(videoFrame.Surface);
+                    encoder.SetSoftwareBitmap(softwareBitmap);
+                    encoder.IsThumbnailGenerated = false;
+                    await encoder.FlushAsync();
+
+                    try
+                    {
+                        bytes = new byte[memoryRandomAccessStream.Size];
+                        await memoryRandomAccessStream.ReadAsync(bytes.AsBuffer(), (uint)memoryRandomAccessStream.Size, InputStreamOptions.None);
+
+                        if (bytes.Any())
+                            await connection.InvokeAsync("UploadStream", bytes);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(ex.Message);
+                    }
+                    finally
+                    {
+                        //softwareBitmap?.Dispose();
+                        //memoryRandomAccessStream?.Dispose();
+                    }
+                });
+
                 var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, videoFrame.SystemRelativeTime);
                 //var samp = MediaStreamSample.CreateFromDirect3D11Surface(videoFrame.Surface, timestamp);
 
@@ -461,8 +525,6 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         private async void Click_StopCapture(object sender, RoutedEventArgs e)
         {
-
-
             //await MediaRecording.StopAsync();
 
             _isRecording = false;
@@ -470,9 +532,7 @@ namespace ObjectDetection.WinApp.MVVM.View
 
             StopCapture();
 
-            //await Task.Delay(TimeSpan.FromSeconds(10));
-
-            await SaveToUnionFile();
+            //await SaveToUnionFile();
         }
 
         private async void Click_TakeScreenShot(object sender, RoutedEventArgs e)

@@ -21,6 +21,7 @@ namespace ObjectDetection.WinApp.DirectXCaptureEncoder
         // WxH
         public static SizeUInt32[] Resolutions => new SizeUInt32[]
         {
+            new SizeUInt32() { Width = 640, Height = 480 },
             new SizeUInt32() { Width = 1280, Height = 720 },
             new SizeUInt32() { Width = 1920, Height = 1080 },
             new SizeUInt32() { Width = 3840, Height = 2160 },
