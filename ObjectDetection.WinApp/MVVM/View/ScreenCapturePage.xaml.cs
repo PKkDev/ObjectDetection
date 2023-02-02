@@ -31,6 +31,10 @@ using Windows.Media.Editing;
 using Microsoft.AspNetCore.SignalR.Client;
 using Windows.Graphics.Imaging;
 using Microsoft.Graphics.Canvas.Effects;
+using Windows.Devices.Enumeration;
+using Windows.Media.Capture.Frames;
+using Windows.Media.Devices;
+using Windows.Media.Capture;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -55,12 +59,15 @@ namespace ObjectDetection.WinApp.MVVM.View
         public bool _isRecording = false;
         #endregion
 
-        //private LowLagMediaRecording MediaRecording;
+        private MediaCapture mediaCapture;
+        private MediaCaptureInitializationSettings mediaCaptureSettings;
+        private LowLagMediaRecording MediaRecording;
 
         private WasapiLoopbackCapture Capture = null;
         private WaveFileWriter Writer = null;
 
-        StorageFile fileAudio;
+        StorageFile filePCAudio;
+        StorageFile fileMicroAudio;
         StorageFile fileVideo;
 
 
@@ -74,31 +81,36 @@ namespace ObjectDetection.WinApp.MVVM.View
             {
                 //var devicePicker = new DevicePicker();
                 //devicePicker.Filter.SupportedDeviceClasses.Add(DeviceClass.AudioRender);
+                //devicePicker.Filter.SupportedDeviceClasses.Add(DeviceClass.AudioCapture);
                 //var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
                 //WinRT.Interop.InitializeWithWindow.Initialize(devicePicker, hwnd);
                 //Windows.Foundation.Rect rect = new Windows.Foundation.Rect(new Windows.Foundation.Point(0, 0), new Windows.Foundation.Point(0, 0));
                 //DeviceInformation di = await devicePicker.PickSingleDeviceAsync(rect);
 
-                //MediaStreamSource.
-
+                // //camera
                 //var frameSourceGroups = await MediaFrameSourceGroup.FindAllAsync();
                 //MediaFrameSourceGroup selectedFrameSourceGroup = frameSourceGroups[0];
                 //MediaFrameSourceInfo frameSourceInfo = selectedFrameSourceGroup.SourceInfos[0];
 
-
-
+                #region micro
 
                 //string audioCaptureSelector = MediaDevice.GetAudioCaptureSelector();
                 //var audioCapture = await DeviceInformation.FindAllAsync(audioCaptureSelector);
 
-                //string audioRenderSelector = MediaDevice.GetAudioRenderSelector();
-                //var audioRender = await DeviceInformation.FindAllAsync(audioRenderSelector);
-
                 //string b = MediaDevice.GetDefaultAudioCaptureId(AudioDeviceRole.Communications);
                 //DeviceInformation b1 = await DeviceInformation.CreateFromIdAsync(b);
 
+                #endregion micro
+
+                #region динамики
+
+                //string audioRenderSelector = MediaDevice.GetAudioRenderSelector();
+                //var audioRender = await DeviceInformation.FindAllAsync(audioRenderSelector);
+
                 //string a = MediaDevice.GetDefaultAudioRenderId(AudioDeviceRole.Default);
                 //DeviceInformation a1 = await DeviceInformation.CreateFromIdAsync(a);
+
+                #endregion динамики
 
                 //var mediaCapture = new MediaCapture();
                 //var settings = new MediaCaptureInitializationSettings
@@ -117,86 +129,82 @@ namespace ObjectDetection.WinApp.MVVM.View
 
                 //var localFolder = ApplicationData.Current.LocalCacheFolder;
                 //StorageFile file = await localFolder.CreateFileAsync("audio.mp3", CreationCollisionOption.GenerateUniqueName);
-                //MediaRecording = await mediaCapture.PrepareLowLagRecordToStorageFileAsync(MediaEncodingProfile.CreateMp3(AudioEncodingQuality.High), file);
-                //await MediaRecording.StartAsync();
+                ////MediaRecording = await mediaCapture.PrepareLowLagRecordToStorageFileAsync(MediaEncodingProfile.CreateMp3(AudioEncodingQuality.High), file);
+                ////await MediaRecording.StartAsync();
             });
             Task.WaitAll(t);
 
             #region signalR connect
 
-            connection = new HubConnectionBuilder()
-                .WithUrl("https://localhost:7139/video")
-                .Build();
+            //connection = new HubConnectionBuilder()
+            //    .WithUrl("https://localhost:7139/video")
+            //    .Build();
 
-            connection.Closed += async (error) =>
-            {
-                await Task.Delay(TimeSpan.FromSeconds(5));
-                await connection.StartAsync();
-            };
+            //connection.Closed += async (error) =>
+            //{
+            //    await Task.Delay(TimeSpan.FromSeconds(5));
+            //    await connection.StartAsync();
+            //};
 
-            try
-            {
-                Task startSignalTask = Task.Run(async () => await connection.StartAsync());
-                startSignalTask.Wait();
-            }
-            catch (Exception e)
-            {
+            //try
+            //{
+            //    Task startSignalTask = Task.Run(async () => await connection.StartAsync());
+            //    startSignalTask.Wait();
+            //}
+            //catch (Exception e)
+            //{
 
-            }
+            //}
 
-            Task sendSignalTask = Task.Run(async () =>
-            {
-                try
-                {
-                    while (true)
-                    {
-                        while (framesToSend.Count == 0) { }
+            //Task sendSignalTask = Task.Run(async () =>
+            //{
+            //    try
+            //    {
+            //        while (true)
+            //        {
+            //            while (framesToSend.Count == 0) { }
 
-                        var bytes = framesToSend.Dequeue();
+            //            var bytes = framesToSend.Dequeue();
 
-                        SoftwareBitmap softwareBitmap = null;
-                        softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(bytes);
-                        if (softwareBitmap.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || softwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
-                            softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+            //            SoftwareBitmap softwareBitmap = null;
+            //            softwareBitmap = await SoftwareBitmap.CreateCopyFromSurfaceAsync(bytes);
+            //            if (softwareBitmap.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || softwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Premultiplied)
+            //                softwareBitmap = SoftwareBitmap.Convert(softwareBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
 
-                        float newWidth = softwareBitmap.PixelWidth / 5;
-                        float newHeight = softwareBitmap.PixelHeight / 5;
-                        using var resourceCreator = CanvasDevice.GetSharedDevice();
-                        using var canvasBitmap = CanvasBitmap.CreateFromSoftwareBitmap(resourceCreator, softwareBitmap);
-                        using CanvasRenderTarget canvasRenderTarget = new(resourceCreator, newWidth, newHeight, canvasBitmap.Dpi);
-                        using var drawingSession = canvasRenderTarget.CreateDrawingSession();
-                        using ScaleEffect scaleEffect = new();
+            //            float newWidth = softwareBitmap.PixelWidth / 5;
+            //            float newHeight = softwareBitmap.PixelHeight / 5;
+            //            using var resourceCreator = CanvasDevice.GetSharedDevice();
+            //            using var canvasBitmap = CanvasBitmap.CreateFromSoftwareBitmap(resourceCreator, softwareBitmap);
+            //            using CanvasRenderTarget canvasRenderTarget = new(resourceCreator, newWidth, newHeight, canvasBitmap.Dpi);
+            //            using var drawingSession = canvasRenderTarget.CreateDrawingSession();
+            //            using ScaleEffect scaleEffect = new();
 
-                        scaleEffect.Source = canvasBitmap;
-                        scaleEffect.Scale = new System.Numerics.Vector2(newWidth / softwareBitmap.PixelWidth, newHeight / softwareBitmap.PixelHeight);
-                        drawingSession.DrawImage(scaleEffect);
-                        drawingSession.Flush();
+            //            scaleEffect.Source = canvasBitmap;
+            //            scaleEffect.Scale = new System.Numerics.Vector2(newWidth / softwareBitmap.PixelWidth, newHeight / softwareBitmap.PixelHeight);
+            //            drawingSession.DrawImage(scaleEffect);
+            //            drawingSession.Flush();
 
-                        var pixels = canvasRenderTarget.GetPixelBytes();
-                        var c = pixels.Count(x => x != 0);
+            //            var pixels = canvasRenderTarget.GetPixelBytes();
+            //            var c = pixels.Count(x => x != 0);
 
-                        if (pixels.Any())
-                            await connection.InvokeAsync("UploadStream", pixels);
+            //            if (pixels.Any())
+            //                await connection.InvokeAsync("UploadStream", pixels);
 
-                        //var news = SoftwareBitmap.CreateCopyFromBuffer(canvasRenderTarget.GetPixelBytes().AsBuffer(), BitmapPixelFormat.Bgra8, (int)newWidth, (int)newHeight, BitmapAlphaMode.Premultiplied);
+            //            //var news = SoftwareBitmap.CreateCopyFromBuffer(canvasRenderTarget.GetPixelBytes().AsBuffer(), BitmapPixelFormat.Bgra8, (int)newWidth, (int)newHeight, BitmapAlphaMode.Premultiplied);
 
-                        softwareBitmap?.Dispose();
-                    }
-                }
-                catch (Exception ex)
-                {
+            //            softwareBitmap?.Dispose();
+            //        }
+            //    }
+            //    catch (Exception ex)
+            //    {
 
-                }
-            });
+            //    }
+            //});
 
             #endregion signalR connect
 
             Setup();
         }
-
-        // Locks
-        private SemaphoreSlim m_lock = new SemaphoreSlim(1);
-        byte[] bytes;
 
         private void Setup()
         {
@@ -344,11 +352,11 @@ namespace ObjectDetection.WinApp.MVVM.View
             {
                 var nowDate = $"{DateTime.Now:yyyyMMdd-HHmm-ss}";
 
-                #region
+                #region capture PC audio
 
-                fileAudio = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync($"{nowDate}.mp3", CreationCollisionOption.GenerateUniqueName);
+                filePCAudio = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync($"{nowDate}_pc.mp3", CreationCollisionOption.GenerateUniqueName);
                 Capture = new WasapiLoopbackCapture();
-                Writer = new WaveFileWriter(fileAudio.Path, Capture.WaveFormat);
+                Writer = new WaveFileWriter(filePCAudio.Path, Capture.WaveFormat);
 
                 Capture.DataAvailable += (s, a) =>
                 {
@@ -363,7 +371,34 @@ namespace ObjectDetection.WinApp.MVVM.View
                     Capture = null;
                 };
 
-                #endregion
+                #endregion capture PC audio
+
+                #region capture microphone
+
+                fileMicroAudio = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync($"{nowDate}_micro.mp3", CreationCollisionOption.GenerateUniqueName);
+
+                string defaultAudioCaptureId = MediaDevice.GetDefaultAudioCaptureId(AudioDeviceRole.Communications);
+                DeviceInformation defaultAudioCapture = await DeviceInformation.CreateFromIdAsync(defaultAudioCaptureId);
+
+                mediaCapture = new MediaCapture();
+                mediaCaptureSettings = new MediaCaptureInitializationSettings
+                {
+                    AudioDeviceId = defaultAudioCapture.Id,
+                    SharingMode = MediaCaptureSharingMode.SharedReadOnly,
+                    StreamingCaptureMode = StreamingCaptureMode.Audio,
+                    MemoryPreference = MediaCaptureMemoryPreference.Cpu
+                };
+                await mediaCapture.InitializeAsync(mediaCaptureSettings);
+
+                mediaCapture.RecordLimitationExceeded += (MediaCapture sender) => { };
+                mediaCapture.Failed += (MediaCapture sender, MediaCaptureFailedEventArgs errorEventArgs) =>
+                {
+                };
+
+                MediaRecording = await mediaCapture.PrepareLowLagRecordToStorageFileAsync(
+                    MediaEncodingProfile.CreateMp3(AudioEncodingQuality.High), fileMicroAudio);
+
+                #endregion capture microphone
 
                 #region
                 var width = _captureItem.Size.Width;
@@ -401,7 +436,7 @@ namespace ObjectDetection.WinApp.MVVM.View
 
                 #region
                 var tempFolder = ApplicationData.Current.LocalCacheFolder;
-                fileVideo = await tempFolder.CreateFileAsync($"{nowDate}.mp4", CreationCollisionOption.ReplaceExisting);
+                fileVideo = await tempFolder.CreateFileAsync($"{nowDate}_video_capture.mp4", CreationCollisionOption.ReplaceExisting);
                 var outputStream = await fileVideo.OpenAsync(FileAccessMode.ReadWrite);
                 #endregion
 
@@ -428,6 +463,8 @@ namespace ObjectDetection.WinApp.MVVM.View
                     wo.Play();
 
                     Capture.StartRecording();
+
+                    await MediaRecording.StartAsync();
 
                     _isRecording = true;
                 }
@@ -491,13 +528,15 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         private async void Click_StopCapture(object sender, RoutedEventArgs e)
         {
-            //await MediaRecording.StopAsync();
+            if (MediaRecording != null)
+                await MediaRecording.FinishAsync();
 
             _isRecording = false;
             framesToSave.Enqueue(null);
 
             StopCapture();
 
+            await Task.Delay(TimeSpan.FromSeconds(5));
             await SaveToUnionFile();
         }
 
@@ -519,17 +558,19 @@ namespace ObjectDetection.WinApp.MVVM.View
 
         private async Task SaveToUnionFile()
         {
-            if (fileAudio != null && fileVideo != null)
+            if (filePCAudio != null && fileVideo != null && fileMicroAudio != null)
             {
                 var fileUnionName = $"{DateTime.Now:yyyyMMdd-HHmm-ss}_unioun.mp4";
                 var fileUnion = await ApplicationData.Current.LocalCacheFolder.CreateFileAsync(fileUnionName, CreationCollisionOption.GenerateUniqueName);
 
                 MediaComposition muxedStream = new MediaComposition();
 
-                BackgroundAudioTrack audioTrack = await BackgroundAudioTrack.CreateFromFileAsync(fileAudio);
+                BackgroundAudioTrack pcAudioTrack = await BackgroundAudioTrack.CreateFromFileAsync(filePCAudio);
+                BackgroundAudioTrack microAudioTrack = await BackgroundAudioTrack.CreateFromFileAsync(fileMicroAudio);
                 MediaClip videoTrack = await MediaClip.CreateFromFileAsync(fileVideo);
 
-                muxedStream.BackgroundAudioTracks.Add(audioTrack);
+                muxedStream.BackgroundAudioTracks.Add(pcAudioTrack);
+                muxedStream.BackgroundAudioTracks.Add(microAudioTrack);
                 muxedStream.Clips.Add(videoTrack);
 
                 await muxedStream.RenderToFileAsync(fileUnion, MediaTrimmingPreference.Precise);
