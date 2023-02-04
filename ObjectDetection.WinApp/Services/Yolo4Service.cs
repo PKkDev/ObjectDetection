@@ -26,7 +26,7 @@ namespace ObjectDetection.WinApp.Services
         public Yolo4Service()
         {
             _mlContext = new();
-            //LoadModel();
+            LoadModel();
         }
 
         private void LoadModel()
