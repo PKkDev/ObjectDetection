@@ -12,7 +12,6 @@ using Microsoft.ML;
 using System.IO;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
-using SkiaSharp;
 
 namespace ObjectDetection.WinApp.Services
 {
