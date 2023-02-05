@@ -53,8 +53,6 @@ namespace ObjectDetection.WinApp
                 services.AddTransient<VideoDetectViewModel>();
                 services.AddTransient<VideoDetectPage>();
 
-                services.AddTransient<ScreenCapturePage>();
-
                 services.AddTransient<NavigationHelperService>();
 
                 services.AddSingleton<Yolo4Service>();

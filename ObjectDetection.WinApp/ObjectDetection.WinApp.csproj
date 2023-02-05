@@ -18,7 +18,6 @@
   <ItemGroup>
     <None Remove="MVVM\View\CameraDetectPage.xaml" />
     <None Remove="MVVM\View\PictureDetectPage.xaml" />
-    <None Remove="MVVM\View\ScreenCapturePage.xaml" />
     <None Remove="MVVM\View\SettingsPage.xaml" />
     <None Remove="MVVM\View\ShellPage.xaml" />
     <None Remove="MVVM\View\VideoDetectPage.xaml" />
@@ -36,7 +35,6 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.0.0" />
     <PackageReference Include="CommunityToolkit.WinUI.UI.Controls" Version="7.1.2" />
-    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="7.0.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
     <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.0.4" />
   </ItemGroup>
@@ -44,7 +42,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.2.221209.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.755" />
-    <PackageReference Include="NAudio" Version="2.1.0" />
     <PackageReference Include="SharpDX.Direct3D11" Version="4.2.0" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
@@ -86,9 +83,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Page Update="MVVM\View\VideoDetectPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Update="MVVM\View\ScreenCapturePage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
