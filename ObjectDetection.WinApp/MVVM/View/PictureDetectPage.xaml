@@ -55,8 +55,15 @@
                     </CommandBarFlyout>
                 </Grid.Resources>
 
-                <Image x:Name="ImapePreviewUI" Source="{x:Bind ViewModel.ImagePrew, Mode=OneWay}" Stretch="Uniform" FlyoutBase.AttachedFlyout="{x:Bind ImageCommandsFlyout}" ContextFlyout="{x:Bind ImageCommandsFlyout}"/>
-                <ProgressRing Canvas.ZIndex="1" Height="100" Width="100"  IsActive="{x:Bind ViewModel.DetectInProgress, Mode=OneWay}"></ProgressRing>
+                <Image Source="{x:Bind ViewModel.ImagePrew, Mode=OneWay}" 
+                       Stretch="Uniform" 
+                       FlyoutBase.AttachedFlyout="{x:Bind ImageCommandsFlyout}" 
+                       ContextFlyout="{x:Bind ImageCommandsFlyout}"/>
+
+                <ProgressRing Canvas.ZIndex="1" 
+                              Height="100" Width="100"  
+                              IsActive="{x:Bind ViewModel.DetectInProgress, Mode=OneWay}"/>
+
             </Grid>
 
         </ScrollViewer>

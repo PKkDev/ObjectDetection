@@ -9,10 +9,11 @@ using Windows.Media;
 using ObjectDetection.WinApp.MVVM.ViewModel;
 using Windows.Graphics.Imaging;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Media.Devices;
-using Windows.Devices.Enumeration;
+using YOLO3.Shared.DataStructures;
+using ObjectDetection.WinApp.Services;
+using YOLO3.Shared.Parser;
 using System.Linq;
-using Windows.Media.Audio;
+using System.Threading;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -28,10 +29,19 @@ namespace ObjectDetection.WinApp.MVVM.View
         private MediaPlayer m_mediaPlayer = null;
         private VideoFrame m_videoFrame = null;
 
+        private readonly Yolo3OutputParser _yoloOutputParser;
+        private readonly Yolo3Service _yoloService;
+
+        // Locks
+        private SemaphoreSlim m_lock = new SemaphoreSlim(1);
+
         public VideoDetectPage()
         {
             InitializeComponent();
             ViewModel = App.GetService<VideoDetectViewModel>();
+
+            _yoloService = App.GetService<Yolo3Service>();
+            _yoloOutputParser = new();
 
             CameraImageSource = new();
             imagePreview.Source = CameraImageSource;
@@ -89,39 +99,86 @@ namespace ObjectDetection.WinApp.MVVM.View
             DisplayImage(m_videoFrame);
         }
 
-        private async void DisplayImage(Windows.Media.VideoFrame videoFrame)
+        private void DisplayImage(Windows.Media.VideoFrame videoFrame)
         {
-            #region get SoftwareBitmap from videoFrame
-
-            SoftwareBitmap targetSoftwareBitmap = m_videoFrame.SoftwareBitmap;
-            VideoFrame m_renderTargetFrame = null;
-
-            if (targetSoftwareBitmap == null)
+            if (m_lock.Wait(0))
             {
-                if (m_renderTargetFrame == null)
-                    m_renderTargetFrame = new VideoFrame(BitmapPixelFormat.Bgra8, m_videoFrame.Direct3DSurface.Description.Width, m_videoFrame.Direct3DSurface.Description.Height, BitmapAlphaMode.Ignore);
-
-                await m_videoFrame.CopyToAsync(m_renderTargetFrame);
-                targetSoftwareBitmap = m_renderTargetFrame.SoftwareBitmap;
-            }
-            else
-            {
-                if (targetSoftwareBitmap.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || targetSoftwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Ignore)
+                Task.Run(async () =>
                 {
-                    if (m_renderTargetFrame == null)
-                        m_renderTargetFrame = new VideoFrame(BitmapPixelFormat.Bgra8, targetSoftwareBitmap.PixelWidth, targetSoftwareBitmap.PixelHeight, BitmapAlphaMode.Ignore);
+                    try
+                    {
+                        #region get SoftwareBitmap from videoFrame
 
-                    await m_videoFrame.CopyToAsync(m_renderTargetFrame);
-                    targetSoftwareBitmap = m_renderTargetFrame.SoftwareBitmap;
-                }
+                        SoftwareBitmap targetSoftwareBitmap = m_videoFrame.SoftwareBitmap;
+                        VideoFrame m_renderTargetFrame = null;
+
+                        if (targetSoftwareBitmap == null)
+                        {
+                            if (m_renderTargetFrame == null)
+                                m_renderTargetFrame = new VideoFrame(BitmapPixelFormat.Bgra8, m_videoFrame.Direct3DSurface.Description.Width, m_videoFrame.Direct3DSurface.Description.Height, BitmapAlphaMode.Ignore);
+
+                            await m_videoFrame.CopyToAsync(m_renderTargetFrame);
+                            targetSoftwareBitmap = m_renderTargetFrame.SoftwareBitmap;
+                        }
+                        else
+                        {
+                            if (targetSoftwareBitmap.BitmapPixelFormat != BitmapPixelFormat.Bgra8 || targetSoftwareBitmap.BitmapAlphaMode != BitmapAlphaMode.Ignore)
+                            {
+                                if (m_renderTargetFrame == null)
+                                    m_renderTargetFrame = new VideoFrame(BitmapPixelFormat.Bgra8, targetSoftwareBitmap.PixelWidth, targetSoftwareBitmap.PixelHeight, BitmapAlphaMode.Ignore);
+
+                                await m_videoFrame.CopyToAsync(m_renderTargetFrame);
+                                targetSoftwareBitmap = m_renderTargetFrame.SoftwareBitmap;
+                            }
+                        }
+
+                        #endregion get SoftwareBitmap from videoFrame
+
+                        #region get probability
+
+                        var IsDetectChecked = true;
+                        Yolo3OutputData predict = await _yoloService.PredictAsync(targetSoftwareBitmap);
+
+                        #endregion get probability
+
+                        App.MainWindow.DispatcherQueue.TryEnqueue(async () =>
+                        {
+                            try
+                            {
+                                if (IsDetectChecked && predict != null)
+                                {
+                                    var probability = _yoloOutputParser.ParseOutputs(predict);
+                                    var bitmap = await _yoloService.RenderProbabilityAsync(probability.ToList(), targetSoftwareBitmap);
+                                    await CameraImageSource.SetBitmapAsync(bitmap);
+                                    //CameraImage = CameraImageSource;
+                                }
+                                else
+                                {
+                                    await CameraImageSource.SetBitmapAsync(targetSoftwareBitmap);
+                                    //CameraImage = CameraImageSource;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                throw;
+                            }
+                        });
+
+                        //App.MainWindow.DispatcherQueue.TryEnqueue(async () =>
+                        //{
+                        //    await CameraImageSource.SetBitmapAsync(targetSoftwareBitmap);
+                        //});
+                    }
+                    catch (Exception ex)
+                    {
+
+                    }
+                    finally
+                    {
+                        m_lock.Release();
+                    }
+                });
             }
-
-            #endregion get SoftwareBitmap from videoFrame
-
-            App.MainWindow.DispatcherQueue.TryEnqueue(async () =>
-            {
-                await CameraImageSource.SetBitmapAsync(targetSoftwareBitmap);
-            });
         }
 
         private void M_mediaPlayer_MediaEnded(MediaPlayer sender, object args)

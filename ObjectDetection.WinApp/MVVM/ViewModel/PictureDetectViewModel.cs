@@ -16,6 +16,7 @@ using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
 using Windows.System;
 using YOLO3.Shared.Parser;
+using YOLO4.Shared.Parser;
 
 namespace ObjectDetection.WinApp.MVVM.ViewModel
 {
@@ -36,12 +37,12 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
 
         private StorageFile SavedImage;
 
-        private readonly Yolo3OutputParser _yoloOutputParser;
-        private readonly Yolo3Service _yoloService;
+        private readonly Yolo4OutputParser _yoloOutputParser;
+        private readonly Yolo4Service _yoloService;
 
         private IFrameSource frameSource { get; set; }
 
-        public PictureDetectViewModel(Yolo3Service yoloService)
+        public PictureDetectViewModel(Yolo4Service yoloService)
         {
             _yoloService = yoloService;
             _yoloOutputParser = new();

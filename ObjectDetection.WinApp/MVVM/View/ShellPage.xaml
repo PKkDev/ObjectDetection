@@ -11,7 +11,7 @@
         <NavigationView
             x:Name="NavView"
             IsBackButtonVisible="Collapsed"
-            IsSettingsVisible="true">
+            IsSettingsVisible="False">
 
             <NavigationView.MenuItems>
 
@@ -30,6 +30,12 @@
                 <NavigationViewItem Tag="VideoDetect" Content="video detect">
                     <NavigationViewItem.Icon>
                         <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE714;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Tag="Settings" Content="settings">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE713;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
