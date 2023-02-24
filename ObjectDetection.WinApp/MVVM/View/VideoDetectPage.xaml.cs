@@ -14,6 +14,8 @@ using ObjectDetection.WinApp.Services;
 using YOLO3.Shared.Parser;
 using System.Linq;
 using System.Threading;
+using YOLO4.Shared.Parser;
+using YOLO4.Shared.DataStructures;
 
 namespace ObjectDetection.WinApp.MVVM.View
 {
@@ -29,18 +31,18 @@ namespace ObjectDetection.WinApp.MVVM.View
         private MediaPlayer m_mediaPlayer = null;
         private VideoFrame m_videoFrame = null;
 
-        private readonly Yolo3OutputParser _yoloOutputParser;
-        private readonly Yolo3Service _yoloService;
+        private readonly Yolo4OutputParser _yoloOutputParser;
+        private readonly Yolo4Service _yoloService;
 
         // Locks
-        private SemaphoreSlim m_lock = new SemaphoreSlim(1);
+        private SemaphoreSlim m_lock = new(1);
 
         public VideoDetectPage()
         {
             InitializeComponent();
             ViewModel = App.GetService<VideoDetectViewModel>();
 
-            _yoloService = App.GetService<Yolo3Service>();
+            _yoloService = App.GetService<Yolo4Service>();
             _yoloOutputParser = new();
 
             CameraImageSource = new();
@@ -63,6 +65,8 @@ namespace ObjectDetection.WinApp.MVVM.View
             StorageFile file = await picker.PickSingleFileAsync();
             if (file != null)
             {
+                await CameraImageSource.SetBitmapAsync(null);
+
                 m_mediaPlayer = new MediaPlayer()
                 {
                     Source = MediaSource.CreateFromStorageFile(file),
@@ -73,8 +77,14 @@ namespace ObjectDetection.WinApp.MVVM.View
                 };
                 m_mediaPlayer.CommandManager.IsEnabled = false;
                 m_mediaPlayer.MediaOpened += M_mediaPlayer_MediaOpened;
-                m_mediaPlayer.MediaEnded += M_mediaPlayer_MediaEnded;
-                m_mediaPlayer.MediaFailed += M_mediaPlayer_MediaFailed;
+                m_mediaPlayer.MediaEnded += (MediaPlayer sender, object args) =>
+                {
+                    Dispose();
+                };
+                m_mediaPlayer.MediaFailed += (MediaPlayer sender, MediaPlayerFailedEventArgs args) =>
+                {
+                    Dispose();
+                };
             }
         }
 
@@ -137,7 +147,7 @@ namespace ObjectDetection.WinApp.MVVM.View
                         #region get probability
 
                         var IsDetectChecked = true;
-                        Yolo3OutputData predict = await _yoloService.PredictAsync(targetSoftwareBitmap);
+                        YoloV4OutputData predict = await _yoloService.PredictAsync(targetSoftwareBitmap);
 
                         #endregion get probability
 
@@ -179,16 +189,6 @@ namespace ObjectDetection.WinApp.MVVM.View
                     }
                 });
             }
-        }
-
-        private void M_mediaPlayer_MediaEnded(MediaPlayer sender, object args)
-        {
-            Dispose();
-        }
-
-        private void M_mediaPlayer_MediaFailed(MediaPlayer sender, MediaPlayerFailedEventArgs args)
-        {
-            Dispose();
         }
 
         /// <summary>
