@@ -42,17 +42,21 @@ namespace ObjectDetection.WinApp
             ConfigureServices((context, services) =>
             {
                 // Views and ViewModels
-                services.AddTransient<SettingsViewModel>();
                 services.AddTransient<SettingsPage>();
-                services.AddTransient<ShellViewModel>();
-                services.AddTransient<ShellPage>();
-                services.AddTransient<PictureDetectViewModel>();
-                services.AddTransient<PictureDetectPage>();
-                services.AddTransient<CameraDetectViewModel>();
-                services.AddTransient<CameraDetectPage>();
-                services.AddTransient<VideoDetectViewModel>();
-                services.AddTransient<VideoDetectPage>();
+                services.AddTransient<SettingsViewModel>();
 
+                services.AddTransient<ShellPage>();
+                services.AddTransient<ShellViewModel>();
+
+                services.AddTransient<PictureDetectPage>();
+                services.AddTransient<PictureDetectViewModel>();
+
+                services.AddTransient<CameraDetectPage>();
+                services.AddTransient<CameraDetectViewModel>();
+                
+                services.AddTransient<VideoDetectPage>();
+                services.AddTransient<VideoDetectViewModel>();
+                
                 services.AddTransient<NavigationHelperService>();
 
                 services.AddSingleton<Yolo4Service>();
