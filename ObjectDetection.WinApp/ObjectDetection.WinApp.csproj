@@ -72,9 +72,6 @@
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="MVVM\Model\" />
-  </ItemGroup>
-  <ItemGroup>
     <None Update="Assets\YoloModel\modelYolo312int8Path.zip">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

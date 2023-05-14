@@ -1,67 +1,52 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
-using System.Reflection;
-using System;
-using System.Windows.Input;
-using Windows.ApplicationModel;
-using System.Threading.Tasks;
+using System.Collections.ObjectModel;
+using ObjectDetection.WinApp.MVVM.Model;
+using System.Linq;
 
 namespace ObjectDetection.WinApp.MVVM.ViewModel
 {
     public class SettingsViewModel : ObservableRecipient
     {
-        private string _versionDescription;
-        public string VersionDescription { get => _versionDescription; set => SetProperty(ref _versionDescription, value); }
-
-        private ElementTheme _elementTheme;
-        public ElementTheme ElementTheme { get => _elementTheme; set => SetProperty(ref _elementTheme, value); }
-
-        public ICommand SwitchThemeCommand { get; }
+        public ObservableCollection<UITheme> Themes { get; set; }
+        private UITheme _selectedTheme;
+        public UITheme SelectedTheme
+        {
+            get { return _selectedTheme; }
+            set
+            {
+                SetTheme(value);
+                SetProperty(ref _selectedTheme, value);
+            }
+        }
 
         public SettingsViewModel()
         {
-            _versionDescription = GetVersionDescription();
+            Themes = new()
+            {
+                new UITheme("Default", ElementTheme.Default),
+                new UITheme("Dark", ElementTheme.Dark),
+                new UITheme("Light", ElementTheme.Light),
+            };
 
-            SwitchThemeCommand = new RelayCommand<ElementTheme>(
-                async (param) =>
-                {
-                    if (ElementTheme != param)
-                    {
-                        ElementTheme = param;
-                        await SetThemeAsync(param);
-                    }
-                });
+            if (App.MainWindow.Content is FrameworkElement rootElement2)
+            {
+                var theme = rootElement2.RequestedTheme;
+                var search = Themes.FirstOrDefault(x => x.Theme == theme);
+                if (search != null)
+                    SelectedTheme = search;
+            }
         }
 
-        private static string GetVersionDescription()
-        {
-            Version version;
-
-            if (false)
-            {
-                var packageVersion = Package.Current.Id.Version;
-
-                version = new(packageVersion.Major, packageVersion.Minor, packageVersion.Build, packageVersion.Revision);
-            }
-            else
-            {
-                version = Assembly.GetExecutingAssembly().GetName().Version!;
-            }
-
-            return $"{"AppDisplayName"} - {version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
-        }
-
-        public async Task SetThemeAsync(ElementTheme theme)
+        public void SetTheme(UITheme theme)
         {
             if (App.MainWindow.Content is FrameworkElement rootElement)
             {
-                rootElement.RequestedTheme = theme;
+                if (rootElement.RequestedTheme == theme.Theme)
+                    return;
 
-                //TitleBarHelper.UpdateTitleBar(theme);
+                rootElement.RequestedTheme = theme.Theme;
             }
-
-            await Task.CompletedTask;
         }
     }
 }
