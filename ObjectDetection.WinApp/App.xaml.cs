@@ -74,8 +74,6 @@ namespace ObjectDetection.WinApp
             //throw new NotImplementedException();
         }
 
-
-
         //protected override void OnShareTargetActivated(ShareTargetActivatedEventArgs args)
         //{
         //    var rootFrame = new Frame();
@@ -83,7 +81,6 @@ namespace ObjectDetection.WinApp
         //    Window.Current.Content = rootFrame;
         //    Window.Current.Activate();
         //}
-
 
         /// <summary>
         /// Invoked when the application is launched.

@@ -113,7 +113,7 @@ namespace ObjectDetection.WinApp.MVVM.ViewModel
             }
         }
 
-        private async Task ConfigureFrameSourceAsync(object source)
+        private async Task ConfigureFrameSourceAsync(DeviceInformation source)
         {
             await m_lock.WaitAsync();
             {

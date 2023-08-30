@@ -33,7 +33,7 @@ namespace ObjectDetection.WinApp.FrameSourceHelper.FrameSource
 
         public static async Task<DeviceFrameSource> CreateAsync(DeviceInformation device, EventHandler<string> failureHandler)
         {
-            var result = new DeviceFrameSource()
+            var source = new DeviceFrameSource()
             {
                 mediaCapture = new MediaCapture(),
                 failureHandler = failureHandler,
@@ -45,11 +45,11 @@ namespace ObjectDetection.WinApp.FrameSourceHelper.FrameSource
                     MemoryPreference = MediaCaptureMemoryPreference.Cpu
                 }
             };
-            result.mediaCapture.Failed += result.MediaCapture_Failed;
+            source.mediaCapture.Failed += source.MediaCapture_Failed;
 
-            await result.IntializeFrameSourceAsync();
+            await source.IntializeFrameSourceAsync();
 
-            return result;
+            return source;
         }
 
         private DeviceFrameSource() { }
@@ -210,12 +210,13 @@ namespace ObjectDetection.WinApp.FrameSourceHelper.FrameSource
                 {
                     frame = sender.TryAcquireLatestFrame();
                 }
-                catch (System.ObjectDisposedException)
+                catch (ObjectDisposedException)
                 {
                     frame = null;
                 }
             }
-            if (frame != null)
+
+            if (frame != null && frame.VideoMediaFrame != null)
             {
                 VideoFrame videoFrame = frame.VideoMediaFrame.GetVideoFrame();
                 videoFrame.SystemRelativeTime = frame.SystemRelativeTime;
