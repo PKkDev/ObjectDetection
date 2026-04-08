@@ -19,4 +19,13 @@
     <Folder Include="YoloModel\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="YoloModel\modelYolo312int8Path.zip">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="YoloModel\modelYolo4Path.zip">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

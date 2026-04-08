@@ -69,7 +69,7 @@ namespace YOLO4.Transformer
 
         public void Save(string pathToSave)
         {
-            var modelNmae = "modelYolo4Path.zip";
+            var modelNmae = "yolov4.zip";
             //var modelNmae = "modelYolo4Vector.zip";
             var fullPath = Path.Combine(pathToSave, modelNmae);
             IDataView data = _mlContext.Data.LoadFromEnumerable(new List<YoloV4InputData>());

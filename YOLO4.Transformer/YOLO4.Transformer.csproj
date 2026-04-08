@@ -16,10 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Model\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="Model\yolov4.onnx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

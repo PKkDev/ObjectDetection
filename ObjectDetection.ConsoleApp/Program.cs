@@ -11,7 +11,8 @@ Yolo4OutputParser parser = new Yolo4OutputParser();
 try
 {
     //var imagePath = "D:\\work\\develops\\MLProjects\\ObjectDetection\\assets\\images\\image4_copy.jpg";
-    var imagePath = "D:\\work\\develops\\MLProjects\\ObjectDetection\\assets\\images\\image4.jpg";
+    //var imagePath = "D:\\work\\develops\\MLProjects\\ObjectDetection\\assets\\images\\image4.jpg";
+    var imagePath = "D:\\Projects\\GreenWood\\GreenWoodHelp\\cameraview\\export\\p16_20260320_153307.png";
 
     YoloV4InputData image = new() { ImagePath = imagePath };
 

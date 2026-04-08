@@ -95,7 +95,7 @@ try
     string pathToSave = Path.Combine(assemblyFolderPath, relativePath);
 
 
-    var modelNmae = "modelYolo312int8Path.zip";
+    var modelNmae = "yolov3-12-int8.zip";
     var fullPathToSave = Path.Combine(pathToSave, modelNmae);
 
     IDataView data = mlContext.Data.LoadFromEnumerable(new List<Yolo3InputData>());
