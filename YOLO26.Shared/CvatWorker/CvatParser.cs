@@ -14,9 +14,9 @@ namespace YOLO26.Shared.CvatWorker
     {
         public List<ParkingData> ParkingData { get; set; } = [];
 
-        public ParkingData this[string id]
+        public ParkingData? this[string id]
         {
-            get => ParkingData.First(x => x.Id == id);
+            get => ParkingData.FirstOrDefault(x => x.Id == id);
         }
 
         /// <summary>
