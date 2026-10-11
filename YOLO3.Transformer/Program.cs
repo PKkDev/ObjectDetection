@@ -1,7 +1,7 @@
 ﻿using Microsoft.ML;
 using Microsoft.ML.Data;
 using Microsoft.ML.Transforms.Onnx;
-using System.Drawing;
+using SkiaSharp;
 using YOLO3.Shared.DataStructures;
 using YOLO3.Shared.Parser;
 using YOLO3.Shared.Settings;
@@ -68,8 +68,7 @@ try
             },
             modelFile: modelLocation,
             recursionLimit: 100,
-            gpuDeviceId: 1,
-            fallbackToCpu: false));
+            gpuDeviceId: null)); // null - считаем на CPU
 
     #endregion pipeline
 
@@ -81,7 +80,6 @@ try
     var imagePath = args.Length > 0
         ? Path.GetFullPath(args[0])
         : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../assets/images/image4.jpg"));
-    using Bitmap btm = new(imagePath);
     Yolo3InputData image = new() { ImagePath = imagePath, };
     Yolo3OutputData predict = predictionEngine.Predict(image);
 
@@ -120,8 +118,14 @@ finally
 
 static void DrawTest(string imagePath, List<Yolo3Result> probability)
 {
-    using var bitmap = new Bitmap(imagePath);
-    using var g = Graphics.FromImage(bitmap);
+    using var bitmap = SKBitmap.Decode(imagePath);
+    using var canvas = new SKCanvas(bitmap);
+
+    // Если шрифта Arial нет (например, в Linux), Skia подставит шрифт по умолчанию
+    using var typeface = SKTypeface.FromFamilyName("Arial");
+    using var font = new SKFont(typeface, 16);
+    using var pen = new SKPaint { Style = SKPaintStyle.Stroke, Color = SKColors.Yellow, StrokeWidth = 1f };
+    using var textPaint = new SKPaint { Style = SKPaintStyle.Fill, Color = SKColors.Black, IsAntialias = true };
 
     var originalImageHeight = bitmap.Height;
     var originalImageWidth = bitmap.Width;
@@ -138,14 +142,29 @@ static void DrawTest(string imagePath, List<Yolo3Result> probability)
         width = (uint)originalImageWidth * width / Yolo3NetSettings.imageWidth;
         height = (uint)originalImageHeight * height / Yolo3NetSettings.imageHeight;
 
-        g.DrawRectangle(Pens.Yellow, x, y, width, height);
+        canvas.DrawRect(SKRect.Create(x, y, width, height), pen);
+
+        // Y - это базовая линия текста, поэтому сдвигаем подпись вниз на размер шрифта
         string text = $"{res.Label} ({(res.Confidence * 100).ToString("0")}%)";
-        g.DrawString(text, new Font("Arial", 12), Brushes.Black, new PointF(x, y));
+        canvas.DrawText(text, x, y + font.Size, font, textPaint);
     }
+
+    canvas.Flush();
 
     var fi = new FileInfo(imagePath);
     var outputPath = Path.Combine(fi.DirectoryName, $"processed{fi.Extension}");
-    bitmap.Save(outputPath);
+    SaveBitmap(bitmap, outputPath);
+}
+
+static void SaveBitmap(SKBitmap bitmap, string outputPath)
+{
+    // формат выбираем по расширению исходного файла
+    var format = Path.GetExtension(outputPath).ToLowerInvariant() == ".png"
+        ? SKEncodedImageFormat.Png
+        : SKEncodedImageFormat.Jpeg;
+
+    using var stream = File.Create(outputPath);
+    bitmap.Encode(stream, format, 90);
 }
 
 /*

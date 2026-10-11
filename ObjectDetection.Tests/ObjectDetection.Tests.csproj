@@ -14,10 +14,9 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
 
-  <!-- Тесты не запускают модели, поэтому нативные библиотеки ONNX Runtime (CUDA и др.) в выходную папку не копируем -->
+  <!-- Тесты не запускают модели, поэтому нативные библиотеки ONNX Runtime в выходную папку не копируем -->
   <ItemGroup>
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" ExcludeAssets="native;build;buildTransitive" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.13.1" ExcludeAssets="native;build;buildTransitive" />
   </ItemGroup>
 
   <ItemGroup>
