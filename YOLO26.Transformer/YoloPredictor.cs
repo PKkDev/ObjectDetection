@@ -166,5 +166,4 @@ namespace YOLO26.Transformer
             return fc;
         }
     }
-
 }

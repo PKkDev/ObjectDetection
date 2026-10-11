@@ -25,14 +25,6 @@ namespace YOLO26.Transformer
             var detections = yolo.Predict(data, orgW, orgH);
             var imagePathProcessed = Path.Combine(workFolder, $"{imgname}-processed.png");
             yolo.SaveAnnotatedImage(imagePath, imagePathProcessed, detections);
-
         }
     }
 }
-
-
-
-
-
-
-

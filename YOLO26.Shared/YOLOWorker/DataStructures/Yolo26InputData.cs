@@ -11,5 +11,4 @@ namespace YOLO26.Shared.YOLOWorker.DataStructures
         [VectorType(1, 3, 640, 640)]
         public float[] Image { get; set; }
     }
-
 }
