@@ -77,7 +77,10 @@ try
     model = pipeline.Fit(emptyData);
 
     PredictionEngine<Yolo3InputData, Yolo3OutputData> predictionEngine = mlContext.Model.CreatePredictionEngine<Yolo3InputData, Yolo3OutputData>(model);
-    var imagePath = "D:\\work\\develops\\MLProjects\\ObjectDetection\\assets\\images\\image4.jpg";
+    // путь к картинке можно передать первым аргументом, по умолчанию - assets/images в корне репозитория
+    var imagePath = args.Length > 0
+        ? Path.GetFullPath(args[0])
+        : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../assets/images/image4.jpg"));
     using Bitmap btm = new(imagePath);
     Yolo3InputData image = new() { ImagePath = imagePath, };
     Yolo3OutputData predict = predictionEngine.Predict(image);

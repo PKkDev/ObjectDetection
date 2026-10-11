@@ -10,9 +10,10 @@ Yolo4OutputParser parser = new Yolo4OutputParser();
 
 try
 {
-    //var imagePath = "D:\\work\\develops\\MLProjects\\ObjectDetection\\assets\\images\\image4_copy.jpg";
-    //var imagePath = "D:\\work\\develops\\MLProjects\\ObjectDetection\\assets\\images\\image4.jpg";
-    var imagePath = "D:\\Projects\\GreenWood\\GreenWoodHelp\\cameraview\\export\\p16_20260320_153307.png";
+    // путь к картинке можно передать первым аргументом, по умолчанию - assets/images в корне репозитория
+    var imagePath = args.Length > 0
+        ? Path.GetFullPath(args[0])
+        : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../assets/images/image4.jpg"));
 
     YoloV4InputData image = new() { ImagePath = imagePath };
 
