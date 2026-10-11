@@ -1,9 +1,5 @@
 ﻿using Microsoft.ML;
-using SixLabors.Fonts;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 using YOLO26.Shared.YOLOWorker.DataStructures;
 
 namespace YOLO26.Transformer
@@ -101,44 +97,43 @@ namespace YOLO26.Transformer
         public void SaveAnnotatedImage(string sourcePath, string outputPath, List<YOLO26Result> detections, bool onlyVehicles = true)
         {
             // 1. Загружаем ОРИГИНАЛЬНОЕ изображение
-            using var image = Image.Load<Rgb24>(sourcePath);
+            using var image = SKBitmap.Decode(sourcePath);
 
             // 2. Начинаем рисование
-            image.Mutate(ctx =>
+            using var canvas = new SKCanvas(image);
+
+            // Настройки для тонкой рамки и мелкого текста
+            // Если шрифта Arial нет (например, в Linux), Skia подставит шрифт по умолчанию
+            using var typeface = SKTypeface.FromFamilyName("Arial");
+            using var font = new SKFont(typeface, 16);
+
+            // Зеленая рамка толщиной 1 пиксель
+            using var pen = new SKPaint { Style = SKPaintStyle.Stroke, Color = SKColors.Lime, StrokeWidth = 1f };
+            using var textPaint = new SKPaint { Style = SKPaintStyle.Fill, Color = SKColors.White, IsAntialias = true };
+
+            foreach (var det in detections)
             {
-                // Настройки для тонкой рамки и мелкого текста
-                var font = SystemFonts.CreateFont("Arial", 16, FontStyle.Regular); // Шрифт по умолчанию
-
-                var pen = Pens.Solid(Color.Lime, 1f); // Зеленая рамка толщиной 1 пиксель
-
-                foreach (var det in detections)
+                if (!onlyVehicles || det.LabelId == 2 || det.LabelId == 7)
                 {
-                    if (!onlyVehicles || det.LabelId == 2 || det.LabelId == 7)
-                    {
-                        // Определяем прямоугольник рамки
-                        var rect = new RectangleF(det.X1, det.Y1, det.X2 - det.X1, det.Y2 - det.Y1);
+                    // Определяем прямоугольник рамки
+                    var rect = new SKRect(det.X1, det.Y1, det.X2, det.Y2);
 
-                        // Рисуем рамку
-                        ctx.Draw(pen, rect);
+                    // Рисуем рамку
+                    canvas.DrawRect(rect, pen);
 
-                        // Готовим текст подписи
-                        string label = $"ID:{det.LabelId} {det.Score:P0}";
+                    // Готовим текст подписи
+                    string label = $"ID:{det.LabelId} {det.Score:P0}";
 
-                        // Измеряем размер текста, чтобы нарисовать фон
-                        FontRectangle textSize = TextMeasurer.MeasureBounds(label, new TextOptions(font));
-
-                        // Рисуем полупрозрачный фон для текста для лучшей читаемости
-                        //var textBgRect = new RectangleF(det.X1, det.Y1 - textSize.Height - 2, textSize.Width + 4, textSize.Height + 2);
-                        //ctx.Fill(Color.Lime.WithAlpha(0.6f), textBgRect);
-
-                        // Рисуем сам текст (белым цветом поверх зеленого фона)
-                        ctx.DrawText(label, font, Color.White, new PointF(det.X1 + 2, det.Y1 - textSize.Height - 1));
-                    }
+                    // Рисуем сам текст (белым цветом) над рамкой; Y - это базовая линия текста
+                    canvas.DrawText(label, det.X1 + 2, det.Y1 - 4, SKTextAlign.Left, font, textPaint);
                 }
-            });
+            }
+
+            canvas.Flush();
 
             // 3. Сохраняем результат
-            image.Save(outputPath);
+            using var output = File.Create(outputPath);
+            image.Encode(output, SKEncodedImageFormat.Png, 100);
         }
 
         /// <summary>
@@ -147,9 +142,13 @@ namespace YOLO26.Transformer
         /// </summary>
         /// <param name="image"></param>
         /// <returns></returns>
-        public float[] PrepareImage(Image<Rgb24> image)
+        public float[] PrepareImage(SKBitmap image)
         {
-            image.Mutate(x => x.Resize(640, 640));
+            // Ресайз до 640x640 сразу в формат RGBA, чтобы порядок байт не зависел от платформы
+            var info = new SKImageInfo(640, 640, SKColorType.Rgba8888, SKAlphaType.Opaque);
+            using var resized = image.Resize(info, new SKSamplingOptions(SKCubicResampler.Mitchell));
+            ReadOnlySpan<byte> pixels = resized.GetPixelSpan();
+            int rowBytes = resized.RowBytes;
 
             float[] fc = new float[1 * 3 * 640 * 640];
 
@@ -158,14 +157,13 @@ namespace YOLO26.Transformer
             {
                 for (int x = 0; x < 640; x++)
                 {
-                    var pixel = image[x, y];
-                    fc[0 * 640 * 640 + y * 640 + x] = pixel.R / 255f;
-                    fc[1 * 640 * 640 + y * 640 + x] = pixel.G / 255f;
-                    fc[2 * 640 * 640 + y * 640 + x] = pixel.B / 255f;
+                    int offset = y * rowBytes + x * 4;
+                    fc[0 * 640 * 640 + y * 640 + x] = pixels[offset + 0] / 255f;
+                    fc[1 * 640 * 640 + y * 640 + x] = pixels[offset + 1] / 255f;
+                    fc[2 * 640 * 640 + y * 640 + x] = pixels[offset + 2] / 255f;
                 }
             }
             return fc;
         }
     }
-
 }

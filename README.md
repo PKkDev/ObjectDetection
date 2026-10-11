@@ -67,6 +67,8 @@ cd YOLO26.Transformer
 dotnet run
 ```
 
+Проект работает и на Linux: картинки обрабатываются через SkiaSharp, которому там нужен пакет `libfontconfig1`.
+
 Читает `Model/yolo26m.onnx` и `Images/1.png`, пишет `Images/1-processed.png` с рамками машин и грузовиков, сохраняет модель ML.NET в `Model/yolo26m.zip`. Модель и имя картинки задаются в `Program.cs`.
 
 ### YOLOv3 / YOLOv4: подготовка моделей

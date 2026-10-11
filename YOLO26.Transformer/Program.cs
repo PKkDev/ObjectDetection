@@ -1,5 +1,4 @@
-﻿using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+﻿using SkiaSharp;
 
 namespace YOLO26.Transformer
 {
@@ -17,23 +16,15 @@ namespace YOLO26.Transformer
             YoloPredictor yolo = new(modelLocation);
             yolo.SaveModel(yoloModel);
 
-            var imagePath = $"{workFolder}\\{imgname}.png";
-            using Image<Rgb24> image = Image.Load<Rgb24>(imagePath);
+            var imagePath = Path.Combine(workFolder, $"{imgname}.png");
+            using SKBitmap image = SKBitmap.Decode(imagePath);
             int orgW = image.Width;
             int orgH = image.Height;
             var data = yolo.PrepareImage(image);
 
             var detections = yolo.Predict(data, orgW, orgH);
-            var imagePathProcessed = $"{workFolder}\\{imgname}-processed.png";
+            var imagePathProcessed = Path.Combine(workFolder, $"{imgname}-processed.png");
             yolo.SaveAnnotatedImage(imagePath, imagePathProcessed, detections);
-
         }
     }
 }
-
-
-
-
-
-
-
