@@ -1,19 +1,23 @@
+from pathlib import Path
+
 from ultralytics import YOLO
 import cv2
 import onnxruntime as ort
 import numpy as np
+
+BASE_DIR = Path(__file__).resolve().parent
  
 # Загружаем вашу обученную модель (.pt)
-#model = YOLO("yolo26n.pt") 
+#model = YOLO(str(BASE_DIR / "yolo26n.pt")) 
 
 # Экспорт с головой One-to-One (идеально для C#)
 #model.export(format="onnx", imgsz=640, dynamic=False)
 
 # 1. Создаем сессию (используем CPU, так как в ML.NET чаще начинают с него)
-session = ort.InferenceSession("yolo26n.onnx", providers=['CPUExecutionProvider'])
+session = ort.InferenceSession(str(BASE_DIR / "yolo26n.onnx"), providers=['CPUExecutionProvider'])
  
 # 2. Загрузка исходного изображения
-original_img = cv2.imread("D:\\Projects\\ObjectDetection\\onnxMap\\20260326211505.png")
+original_img = cv2.imread(str(BASE_DIR / "images" / "3.png"))
 h_orig, w_orig = original_img.shape[:2]
 
 # Предобработка: ресайз до 640x640 для модели

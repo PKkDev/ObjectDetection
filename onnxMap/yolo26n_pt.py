@@ -1,13 +1,17 @@
+from pathlib import Path
+
 from ultralytics import YOLO
 import cv2
 
+BASE_DIR = Path(__file__).resolve().parent
+
 # 1. Загружаем модель напрямую из .pt файла
 # Библиотека сама определит, что это YOLO26
-model = YOLO("yolo26n.pt")
+model = YOLO(str(BASE_DIR / "yolo26n.pt"))
 
 
 # 2. Выполняем предсказание 
-results = model.predict(source="D:\\Projects\\ObjectDetection\\onnxMap\\20260326211505.png", conf=0.25)
+results = model.predict(source=str(BASE_DIR / "images" / "3.png"), conf=0.25)
 
 # 3. Визуализация (у YOLO есть встроенный метод plot)
 for r in results:

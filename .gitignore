@@ -6,6 +6,7 @@
 # Custom
 *.zip
 *.onnx
+*.pt
 
 # User-specific files
 *.rsuser
