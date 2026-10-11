@@ -20,7 +20,7 @@ namespace YOLO26.Transformer
             using SKBitmap image = SKBitmap.Decode(imagePath);
             int orgW = image.Width;
             int orgH = image.Height;
-            var data = yolo.PrepareImage(image);
+            var data = YoloPredictor.PrepareImage(image);
 
             var detections = yolo.Predict(data, orgW, orgH);
             var imagePathProcessed = Path.Combine(workFolder, $"{imgname}-processed.png");
