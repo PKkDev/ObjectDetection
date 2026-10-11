@@ -1,0 +1,43 @@
+name: Tests
+
+on:
+  push:
+    #branches: [main] #без дублей на каждый push
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        net-version: [10.0.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ matrix.net-version }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.net-version }}
+
+      # Собираем только проект тестов: решение целиком содержит WinUI-приложение, которое на Linux не собирается
+      - name: Restore
+        run: dotnet restore ObjectDetection.Tests
+
+      - name: Build
+        run: dotnet build ObjectDetection.Tests --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test ObjectDetection.Tests --no-build --configuration Release --logger "trx;LogFileName=results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: ObjectDetection.Tests/TestResults/*.trx
