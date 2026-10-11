@@ -104,6 +104,14 @@ dotnet run
 
 Страницы «картинка» и «видео» работают на YOLOv4, «камера» — на YOLOv3.
 
+## Тесты
+
+```bash
+dotnet test ObjectDetection.Tests
+```
+
+Юнит-тесты на xUnit покрывают разбор выходов YOLOv3, YOLOv4 и YOLO26 и подготовку картинки для YOLO26. Модели для них не нужны.
+
 ## Источники
 
 Тестовые картинки в `assets/images/` взяты из Wikimedia Commons, ссылки и лицензии — в `assets/images/wikimedia.md`.

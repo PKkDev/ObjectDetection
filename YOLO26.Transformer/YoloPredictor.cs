@@ -1,6 +1,7 @@
 ﻿using Microsoft.ML;
 using SkiaSharp;
 using YOLO26.Shared.YOLOWorker.DataStructures;
+using YOLO26.Shared.YOLOWorker.Parser;
 
 namespace YOLO26.Transformer
 {
@@ -9,7 +10,7 @@ namespace YOLO26.Transformer
         private readonly MLContext _mlContext;
         private readonly PredictionEngine<Yolo26InputData, Yolo26OutputData> _predictionEngine;
         private ITransformer? _model = null;
-        private const float ModelSize = 640f;
+        private readonly Yolo26OutputParser _outputParser = new();
 
         public YoloPredictor(string modelPath)
         {
@@ -51,41 +52,10 @@ namespace YOLO26.Transformer
             var input = new Yolo26InputData { Image = pixelData };
             var output = _predictionEngine.Predict(input);
 
-            var detections = new List<YOLO26Result>();
+            var detections = _outputParser.ParseOutputs(output, orgW, orgH);
 
-            // Разбор 300 предсказаний (каждое по 6 значений)
-            for (int i = 0; i < 300; i++)
-            {
-                int offset = i * 6;
-                float score = output.Predictions[offset + 4];
-
-                if (score > 0.1f) // Порог уверенности 0.4f
-                {
-                    float x1 = output.Predictions[offset + 0];
-                    float y1 = output.Predictions[offset + 1];
-                    float x2 = output.Predictions[offset + 2];
-                    float y2 = output.Predictions[offset + 3];
-                    int classId = (int)output.Predictions[offset + 5];
-
-                    // Масштабируем обратно под оригинал (если модель 640x640)
-                    float x1_real = x1 * (orgW / ModelSize);
-                    float y1_real = y1 * (orgH / ModelSize);
-                    float x2_real = x2 * (orgW / ModelSize);
-                    float y2_real = y2 * (orgH / ModelSize);
-
-                    Console.WriteLine($"Найден объект {classId} [Conf: {score:P0}] на {x1_real:0},{y1_real:0}");
-
-                    detections.Add(new YOLO26Result
-                    {
-                        X1 = x1 * (orgW / ModelSize),
-                        Y1 = y1 * (orgH / ModelSize),
-                        X2 = x2 * (orgW / ModelSize),
-                        Y2 = y2 * (orgH / ModelSize),
-                        Score = score,
-                        LabelId = (int)output.Predictions[offset + 5]
-                    });
-                }
-            }
+            foreach (var det in detections)
+                Console.WriteLine($"Найден объект {det.Label} (ID:{det.LabelId}) [Conf: {det.Score:P0}] на {det.X1:0},{det.Y1:0}");
 
             return detections;
         }
@@ -122,7 +92,7 @@ namespace YOLO26.Transformer
                     canvas.DrawRect(rect, pen);
 
                     // Готовим текст подписи
-                    string label = $"ID:{det.LabelId} {det.Score:P0}";
+                    string label = $"{det.Label} {det.Score:P0}";
 
                     // Рисуем сам текст (белым цветом) над рамкой; Y - это базовая линия текста
                     canvas.DrawText(label, det.X1 + 2, det.Y1 - 4, SKTextAlign.Left, font, textPaint);
@@ -142,7 +112,7 @@ namespace YOLO26.Transformer
         /// </summary>
         /// <param name="image"></param>
         /// <returns></returns>
-        public float[] PrepareImage(SKBitmap image)
+        public static float[] PrepareImage(SKBitmap image)
         {
             // Ресайз до 640x640 сразу в формат RGBA, чтобы порядок байт не зависел от платформы
             var info = new SKImageInfo(640, 640, SKColorType.Rgba8888, SKAlphaType.Opaque);
