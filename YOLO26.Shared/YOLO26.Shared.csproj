@@ -10,7 +10,7 @@
     <PackageReference Include="Microsoft.ML" Version="5.0.0" />
     <PackageReference Include="Microsoft.ML.OnnxTransformer" Version="5.0.0" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" />
-    <!--<PackageReference Include="Microsoft.ML.ImageAnalytics" Version="5.0.0" />-->
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
   </ItemGroup>
 
 </Project>

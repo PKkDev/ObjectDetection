@@ -8,25 +8,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- версия 2.88.x: под нее собран Microsoft.ML.ImageAnalytics 5.0 -->
-    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.153.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\YOLO4.Shared\YOLO4.Shared.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="YoloModel\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="YoloModel\modelYolo312int8Path.zip">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="YoloModel\modelYolo4Path.zip">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <ProjectReference Include="..\FrameAnalysis\FrameAnalysis.csproj" />
+    <ProjectReference Include="..\YOLO26.Shared\YOLO26.Shared.csproj" />
   </ItemGroup>
 
 </Project>

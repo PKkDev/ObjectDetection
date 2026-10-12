@@ -1,137 +1,77 @@
-﻿using Microsoft.ML;
+﻿using FrameAnalysis.Llm;
+using Microsoft.ML;
 using SkiaSharp;
-using YOLO4.Shared.DataStructures;
-using YOLO4.Shared.Parser;
-using YOLO4.Shared.Settings;
+using YOLO26.Shared.YOLOWorker;
+using YOLO26.Shared.YOLOWorker.DataStructures;
+using YOLO26.Shared.YOLOWorker.Parser;
 
-MLContext mlContext = new();
-Yolo4OutputParser parser = new Yolo4OutputParser();
+// Проверка всего конвейера: кадр -> YOLO26 -> запрос -> LLM -> структурированный ответ.
+// Аргументы (оба необязательные): вопрос и путь к кадру
+
+// Переключатель LLM
+var llm = Llm.OllamaGemma3;
+//var llm = Llm.OllamaQwen25Vl;
+//var llm = Llm.Claude;
+
+var question = args.Length > 0 ? args[0] : "Сколько машин на кадре?";
+
+// модель - результат работы проекта YOLO26.Transformer (.zip), кадр по умолчанию берется оттуда же
+var transformerFolder = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../YOLO26.Transformer"));
+var modelPath = Path.Combine(transformerFolder, "Model", "yolo26m.zip");
+var imagePath = args.Length > 1
+    ? Path.GetFullPath(args[1])
+    : Path.Combine(transformerFolder, "Images", "1.png");
 
 try
 {
-    // путь к картинке можно передать первым аргументом, по умолчанию - assets/images в корне репозитория
-    var imagePath = args.Length > 0
-        ? Path.GetFullPath(args[0])
-        : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../assets/images/image4.jpg"));
+    if (!File.Exists(modelPath)) throw new FileNotFoundException($"Модель YOLO26 не найдена: {modelPath}. Сначала запустите проект YOLO26.Transformer - он ее сохраняет", modelPath);
+    if (!File.Exists(imagePath)) throw new FileNotFoundException($"Кадр не найден: {imagePath}", imagePath);
 
-    YoloV4InputData image = new() { ImagePath = imagePath };
-
-    //byte[] vector = GetVectorByImgPath(imagePath);
-    //YoloV4InputData image = new() { ImageVector = vector };
-    //SaveVectorByImg(imagePath, 416, 416, listT.ToArray());
-
-    var modelLocation = Path.Combine(Environment.CurrentDirectory, "YoloModel", "modelYolo4Path.zip");
-    FileInfo fi = new(modelLocation);
-    if (!fi.Exists) throw new Exception("saved yolo model not found");
-
-    DataViewSchema modelSchema;
-    ITransformer trainedModel = mlContext.Model.Load(modelLocation, out modelSchema);
-    PredictionEngine<YoloV4InputData, YoloV4OutputData> predictionEngine = mlContext.Model.CreatePredictionEngine<YoloV4InputData, YoloV4OutputData>(trainedModel);
-    YoloV4OutputData predict = predictionEngine.Predict(image);
-
-    var probability = parser.ParseOutputs(predict);
-
-    DrawTest(imagePath, probability);
-
-}
-catch (Exception e)
-{
-    Console.WriteLine(e);
-}
-
-byte[] GetVectorByImgPath(string imagePath)
-{
-    using var source = SKBitmap.Decode(imagePath);
-
-    // сразу в формат RGBA, чтобы порядок байт не зависел от платформы
-    var info = new SKImageInfo(ImageNetSettings.imageWidth, ImageNetSettings.imageHeight, SKColorType.Rgba8888, SKAlphaType.Opaque);
-    using var btmToPrse = source.Resize(info, SKFilterQuality.High);
-    ReadOnlySpan<byte> pixels = btmToPrse.GetPixelSpan();
-
-    List<byte> listT = new List<byte>();
-    for (int y = 0; y < btmToPrse.Height; y++)
+    IFrameQuestionAnswerer answerer = llm switch
     {
-        for (int x = 0; x < btmToPrse.Width; x++)
-        {
-            int offset = y * btmToPrse.RowBytes + x * 4;
-            listT.Add(pixels[offset + 0]);
-            listT.Add(pixels[offset + 1]);
-            listT.Add(pixels[offset + 2]);
-        }
-    }
-    return listT.ToArray();
+        // локальные модели в Ollama: бесплатно, кадр не покидает компьютер
+        Llm.OllamaGemma3 => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModels.Gemma3_4b }),
+        Llm.OllamaQwen25Vl => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModels.Qwen25Vl_7b }),
+        // Claude API: вызов платный и отправляет кадр наружу; ключ - в переменной окружения ANTHROPIC_API_KEY
+        Llm.Claude => new ClaudeFrameQuestionAnswerer(),
+        _ => throw new ArgumentOutOfRangeException(nameof(llm)),
+    };
+
+    // о недоступной модели узнаем сразу, а не после детекции
+    if (answerer is OllamaFrameQuestionAnswerer ollama)
+        await ollama.EnsureModelAvailableAsync();
+
+    // модель ML.NET (.zip) загружается так же, как это делает потребитель; в приложении вместо этого - PredictionEnginePool
+    var mlContext = new MLContext();
+    ITransformer model = mlContext.Model.Load(modelPath, out _);
+    var predictionEngine = mlContext.Model.CreatePredictionEngine<Yolo26InputData, Yolo26OutputData>(model);
+    var outputParser = new Yolo26OutputParser();
+
+    using var frame = SKBitmap.Decode(imagePath);
+    var output = predictionEngine.Predict(Yolo26ImagePreprocessor.ToInput(frame));
+    var detections = outputParser.ParseOutputs(output, frame.Width, frame.Height);
+
+    Console.WriteLine($"Кадр: {imagePath}");
+    Console.WriteLine($"Найдено объектов: {detections.Count}");
+    foreach (var det in detections.OrderByDescending(d => d.Score))
+        Console.WriteLine($"  {det.Label} [{det.Score:P0}] ({det.X1:0}, {det.Y1:0})-({det.X2:0}, {det.Y2:0})");
+
+    var answer = await answerer.AskAsync(frame, detections, question);
+
+    Console.WriteLine();
+    Console.WriteLine($"Вопрос: {question}");
+    Console.WriteLine($"Ответ: {answer.Answer}");
+    Console.WriteLine($"Можно ответить по кадру: {(answer.CanAnswer ? "да" : "нет")}, уверенность: {answer.Confidence}, объекты: {string.Join(", ", answer.ReferencedObjects)}");
+    Console.WriteLine($"Модель: {answer.Model}, токены: {answer.InputTokens} на входе, {answer.OutputTokens} на выходе");
+}
+catch (Exception e) when (e is FrameQuestionFailedException or FileNotFoundException or FormatException)
+{
+    Console.WriteLine($"Ошибка: {e.Message}");
 }
 
-void SaveVectorByImg(string imagePath, int w, int h, byte[] data)
+enum Llm
 {
-    using var bitmap = new SKBitmap(new SKImageInfo(w, h, SKColorType.Rgba8888, SKAlphaType.Opaque));
-
-    int pos = 0;
-    for (int y = 0; y < h; y++)
-    {
-        for (int x = 0; x < w; x++)
-        {
-            bitmap.SetPixel(x, y, new SKColor(data[pos], data[pos + 1], data[pos + 2]));
-            pos += 3;
-        }
-    }
-
-    var fi = new FileInfo(imagePath);
-    var outputPath = Path.Combine(fi.DirectoryName, $"processed_test{fi.Extension}");
-    SaveBitmap(bitmap, outputPath);
-}
-
-void DrawTest(string imagePath, List<YoloV4Result> probability)
-{
-    using var bitmap = SKBitmap.Decode(imagePath);
-    using var canvas = new SKCanvas(bitmap);
-
-    // Если шрифта Arial нет (например, в Linux), Skia подставит шрифт по умолчанию
-    using var typeface = SKTypeface.FromFamilyName("Arial");
-    using var font = new SKFont(typeface, 16);
-    using var pen = new SKPaint { Style = SKPaintStyle.Stroke, Color = SKColors.Yellow, StrokeWidth = 1f };
-    using var textPaint = new SKPaint { Style = SKPaintStyle.Fill, Color = SKColors.Black, IsAntialias = true };
-
-    var originalImageHeight = bitmap.Height;
-    var originalImageWidth = bitmap.Width;
-
-    foreach (var res in probability)
-    {
-        var x = res.BBox[0];
-        var y = res.BBox[1];
-        var width = res.BBox[2] - res.BBox[0];
-        var height = res.BBox[3] - res.BBox[1];
-
-        Console.WriteLine($"originaly - x:{x}, y:{y}, w:{width}, h:{height}, l:{res.Label}, c:{res.Confidence}");
-
-        x = (uint)originalImageWidth * x / ImageNetSettings.imageWidth;
-        y = (uint)originalImageHeight * y / ImageNetSettings.imageHeight;
-        width = (uint)originalImageWidth * width / ImageNetSettings.imageWidth;
-        height = (uint)originalImageHeight * height / ImageNetSettings.imageHeight;
-
-        Console.WriteLine($"after resize - x:{x}, y:{y}, w:{width}, h:{height}, l:{res.Label}, c:{res.Confidence}");
-
-        canvas.DrawRect(SKRect.Create(x, y, width, height), pen);
-
-        // Y - это базовая линия текста, поэтому сдвигаем подпись вниз на размер шрифта
-        string text = $"{res.Label} ({(res.Confidence * 100).ToString("0")}%)";
-        canvas.DrawText(text, x, y + font.Size, font, textPaint);
-    }
-
-    canvas.Flush();
-
-    var fi = new FileInfo(imagePath);
-    var outputPath = Path.Combine(fi.DirectoryName, $"processed{fi.Extension}");
-    SaveBitmap(bitmap, outputPath);
-}
-
-void SaveBitmap(SKBitmap bitmap, string outputPath)
-{
-    // формат выбираем по расширению исходного файла
-    var format = Path.GetExtension(outputPath).ToLowerInvariant() == ".png"
-        ? SKEncodedImageFormat.Png
-        : SKEncodedImageFormat.Jpeg;
-
-    using var stream = File.Create(outputPath);
-    bitmap.Encode(stream, format, 90);
+    OllamaGemma3,
+    OllamaQwen25Vl,
+    Claude,
 }

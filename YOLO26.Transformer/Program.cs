@@ -1,4 +1,5 @@
 ﻿using SkiaSharp;
+using YOLO26.Shared.YOLOWorker;
 
 namespace YOLO26.Transformer
 {
@@ -20,7 +21,7 @@ namespace YOLO26.Transformer
             using SKBitmap image = SKBitmap.Decode(imagePath);
             int orgW = image.Width;
             int orgH = image.Height;
-            var data = YoloPredictor.PrepareImage(image);
+            var data = Yolo26ImagePreprocessor.PrepareImage(image);
 
             var detections = yolo.Predict(data, orgW, orgH);
             var imagePathProcessed = Path.Combine(workFolder, $"{imgname}-processed.png");
