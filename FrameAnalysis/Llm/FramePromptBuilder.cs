@@ -139,6 +139,14 @@ namespace FrameAnalysis.Llm
                 canvas.Flush();
             }
 
+            // Сохраняем результат в файл для отладки
+            //using (var image = SKImage.FromBitmap(target))
+            //using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+            //using (var stream = File.OpenWrite("output.png"))
+            //{
+            //    data.SaveTo(stream);
+            //}
+
             return Encode(target);
         }
 

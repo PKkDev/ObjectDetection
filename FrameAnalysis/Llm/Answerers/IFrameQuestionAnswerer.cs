@@ -1,7 +1,7 @@
 ﻿using SkiaSharp;
 using YOLO26.Shared.YOLOWorker.DataStructures;
 
-namespace FrameAnalysis.Llm
+namespace FrameAnalysis.Llm.Answerers
 {
     /// <summary>
     /// Отвечает на вопрос по кадру, опираясь на изображение и результаты детектора

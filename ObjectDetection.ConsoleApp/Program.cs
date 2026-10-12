@@ -1,4 +1,7 @@
 ﻿using FrameAnalysis.Llm;
+using FrameAnalysis.Llm.Answerers;
+using FrameAnalysis.Llm.Answerers.Claude;
+using FrameAnalysis.Llm.Answerers.Ollama;
 using Microsoft.ML;
 using SkiaSharp;
 using YOLO26.Shared.YOLOWorker;
@@ -30,8 +33,8 @@ try
     IFrameQuestionAnswerer answerer = llm switch
     {
         // локальные модели в Ollama: бесплатно, кадр не покидает компьютер
-        Llm.OllamaGemma3 => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModels.Gemma3_4b }),
-        Llm.OllamaQwen25Vl => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModels.Qwen25Vl_7b }),
+        Llm.OllamaGemma3 => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModel.Gemma3_4b }),
+        Llm.OllamaQwen25Vl => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModel.Qwen25Vl_7b }),
         // Claude API: вызов платный и отправляет кадр наружу; ключ - в переменной окружения ANTHROPIC_API_KEY
         Llm.Claude => new ClaudeFrameQuestionAnswerer(),
         _ => throw new ArgumentOutOfRangeException(nameof(llm)),

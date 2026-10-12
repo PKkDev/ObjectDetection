@@ -11,7 +11,7 @@
 | --- | --- |
 | `onnxMap/` | Python-скрипты: экспорт YOLO26 из `.pt` в `.onnx` и проверка результата |
 | `YOLO26.Shared/` | Всё, что нужно потребителю модели YOLO26: входные и выходные данные, подготовка кадра и разбор выхода |
-| `FrameAnalysis/` | Конвейер «детектор отбирает кадры → LLM отвечает на вопросы по ним» |
+| `FrameAnalysis/` | Вопросы к LLM по кадру с учётом результатов детектора |
 | `YOLO26.Transformer/` | Консоль: `.onnx` → модель ML.NET (`.zip`) + тестовый прогон |
 | `YOLO3.Shared/`, `YOLO4.Shared/` | Структуры данных и разбор выходов YOLOv3 / YOLOv4 |
 | `YOLO3.Transformer/`, `YOLO4.Transformer/` | Консоль: `.onnx` → модель ML.NET (`.zip`) + тестовый прогон |
@@ -107,26 +107,18 @@ dotnet run -- "Сколько машин на кадре?"
 
 ## Разбор кадров с помощью LLM
 
-Библиотека `FrameAnalysis` соединяет детектор и LLM: детектор смотрит каждый кадр, а в LLM уходят только кадры-события.
+Библиотека `FrameAnalysis` отвечает на вопросы по кадру, опираясь на изображение и результаты детектора. Какие кадры отправлять в LLM, решает вызывающее приложение.
 
-- `DetectionChangeFilter` — отбирает кадры. Событие — устойчивое изменение состава объектов (сколько объектов какой категории), а не сам факт, что на кадре что-то есть. Категории, порог уверенности, число кадров для устойчивости, пауза между событиями и дополнительное условие задаются в `FrameFilterOptions`.
 - `FramePromptBuilder` — собирает запрос: кадр с пронумерованными рамками, увеличенные фрагменты объектов с номером на плашке и текст с результатами детекции.
 - `OllamaFrameQuestionAnswerer` и `ClaudeFrameQuestionAnswerer` — задают вопрос локальной модели в Ollama или Claude API и возвращают `FrameAnswer`: текст ответа, признак «по кадру ответить нельзя», уверенность и номера объектов, на которые опирается ответ.
-- `FrameAnalyzer` — связывает всё вместе: `ProcessAsync(кадр, время, вопрос)` возвращает ответ или `null`, если кадр не прошёл фильтр.
 
 ```csharp
 // pool - PredictionEnginePool<Yolo26InputData, Yolo26OutputData>, в который загружена модель yolo26m.zip
-var parser = new Yolo26OutputParser();
-IReadOnlyList<YOLO26Result> Detect(SKBitmap frame)
-{
-    var output = pool.Predict("Yolo26m", Yolo26ImagePreprocessor.ToInput(frame));
-    return parser.ParseOutputs(output, frame.Width, frame.Height);
-}
+var output = pool.Predict("Yolo26m", Yolo26ImagePreprocessor.ToInput(frame));
+var detections = new Yolo26OutputParser().ParseOutputs(output, frame.Width, frame.Height);
 
-var filter = new DetectionChangeFilter(new FrameFilterOptions { WatchedLabels = new HashSet<string> { "car", "truck" } });
-var analyzer = new FrameAnalyzer(Detect, filter, new OllamaFrameQuestionAnswerer());
-
-var result = await analyzer.ProcessAsync(frame, DateTimeOffset.Now, "Есть ли машины с открытым багажником?");
+IFrameQuestionAnswerer answerer = new OllamaFrameQuestionAnswerer();
+FrameAnswer answer = await answerer.AskAsync(frame, detections, "Есть ли машины с открытым багажником?");
 ```
 
 ### Локальная модель (Ollama)
@@ -140,7 +132,7 @@ var result = await analyzer.ProcessAsync(frame, DateTimeOffset.Now, "Есть л
 ollama pull gemma3:4b
 ```
 
-Модель задаётся в `OllamaAnswererOptions.Model`, проверенные имена лежат в `OllamaModels`. `gemma3:4b` выбрана по умолчанию как помещающаяся в 6 ГБ видеопамяти. Перед первым вопросом проверяется, что Ollama запущена и модель скачана; если нет — ошибка перечисляет скачанные модели и команду для загрузки.
+Модель задаётся в `OllamaAnswererOptions.Model` значением перечисления `OllamaModel`; чтобы подключить новую модель, её добавляют в перечисление и в `ToModelName`. `gemma3:4b` выбрана по умолчанию как помещающаяся в 6 ГБ видеопамяти. Перед первым вопросом проверяется, что Ollama запущена и модель скачана; если нет — ошибка перечисляет скачанные модели и команду для загрузки.
 
 ### Claude API
 
@@ -161,7 +153,7 @@ dotnet run -- "Сколько машин на кадре?" путь\к\кадр�
 dotnet test ObjectDetection.Tests
 ```
 
-Юнит-тесты на xUnit покрывают разбор выходов YOLOv3, YOLOv4 и YOLO26, подготовку картинки для YOLO26 и конвейер `FrameAnalysis` (фильтр кадров, сборку запроса, разбор ответа). Модели и ключ API для них не нужны: вызов LLM в тестах подменён.
+Юнит-тесты на xUnit покрывают разбор выходов YOLOv3, YOLOv4 и YOLO26, подготовку картинки для YOLO26 и библиотеку `FrameAnalysis` (сборку запроса, разбор ответа, обращение к Ollama). Модели и ключ API для них не нужны: вызов LLM в тестах подменён.
 
 ## Источники
 
