@@ -28,6 +28,7 @@
     <ProjectReference Include="..\YOLO4.Shared\YOLO4.Shared.csproj" />
     <ProjectReference Include="..\YOLO26.Shared\YOLO26.Shared.csproj" />
     <ProjectReference Include="..\YOLO26.Transformer\YOLO26.Transformer.csproj" />
+    <ProjectReference Include="..\FrameAnalysis\FrameAnalysis.csproj" />
   </ItemGroup>
 
 </Project>

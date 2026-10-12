@@ -9,7 +9,7 @@ namespace YOLO26.Transformer
     {
         private readonly MLContext _mlContext;
         private readonly PredictionEngine<Yolo26InputData, Yolo26OutputData> _predictionEngine;
-        private ITransformer? _model = null;
+        private readonly ITransformer _model;
         private readonly Yolo26OutputParser _outputParser = new();
 
         public YoloPredictor(string modelPath)
@@ -104,36 +104,6 @@ namespace YOLO26.Transformer
             // 3. Сохраняем результат
             using var output = File.Create(outputPath);
             image.Encode(output, SKEncodedImageFormat.Png, 100);
-        }
-
-        /// <summary>
-        /// Модель ожидает массив float[], 
-        /// где пиксели нормализованы (0..1) и идут в порядке RGB (а не BGR) и в формате CHW (сначала все красные, потом зеленые, потом синие).
-        /// </summary>
-        /// <param name="image"></param>
-        /// <returns></returns>
-        public static float[] PrepareImage(SKBitmap image)
-        {
-            // Ресайз до 640x640 сразу в формат RGBA, чтобы порядок байт не зависел от платформы
-            var info = new SKImageInfo(640, 640, SKColorType.Rgba8888, SKAlphaType.Opaque);
-            using var resized = image.Resize(info, new SKSamplingOptions(SKCubicResampler.Mitchell));
-            ReadOnlySpan<byte> pixels = resized.GetPixelSpan();
-            int rowBytes = resized.RowBytes;
-
-            float[] fc = new float[1 * 3 * 640 * 640];
-
-            // Заполняем массив в формате CHW (Planar)
-            for (int y = 0; y < 640; y++)
-            {
-                for (int x = 0; x < 640; x++)
-                {
-                    int offset = y * rowBytes + x * 4;
-                    fc[0 * 640 * 640 + y * 640 + x] = pixels[offset + 0] / 255f;
-                    fc[1 * 640 * 640 + y * 640 + x] = pixels[offset + 1] / 255f;
-                    fc[2 * 640 * 640 + y * 640 + x] = pixels[offset + 2] / 255f;
-                }
-            }
-            return fc;
         }
     }
 }

@@ -1,9 +1,9 @@
-using SkiaSharp;
-using YOLO26.Transformer;
+﻿using SkiaSharp;
+using YOLO26.Shared.YOLOWorker;
 
 namespace ObjectDetection.Tests
 {
-    public class YoloPredictorPrepareImageTests
+    public class Yolo26ImagePreprocessorTests
     {
         private const int Size = 640;
         private const int Plane = Size * Size;
@@ -25,7 +25,7 @@ namespace ObjectDetection.Tests
         {
             using var bitmap = SolidBitmap(100, 50, SKColors.Black);
 
-            var data = YoloPredictor.PrepareImage(bitmap);
+            var data = Yolo26ImagePreprocessor.PrepareImage(bitmap);
 
             Assert.Equal(3 * Size * Size, data.Length);
         }
@@ -35,7 +35,7 @@ namespace ObjectDetection.Tests
         {
             using var bitmap = SolidBitmap(64, 64, new SKColor(255, 102, 0));
 
-            var data = YoloPredictor.PrepareImage(bitmap);
+            var data = Yolo26ImagePreprocessor.PrepareImage(bitmap);
 
             foreach (var (x, y) in new[] { (0, 0), (320, 320), (639, 639) })
             {
@@ -50,7 +50,7 @@ namespace ObjectDetection.Tests
         {
             using var bitmap = SolidBitmap(32, 32, SKColors.White);
 
-            var data = YoloPredictor.PrepareImage(bitmap);
+            var data = Yolo26ImagePreprocessor.PrepareImage(bitmap);
 
             Assert.All(data, v => Assert.InRange(v, 0f, 1f));
             Assert.Equal(1f, data[Index(1, 100, 100)], 2);
@@ -65,7 +65,7 @@ namespace ObjectDetection.Tests
             using (var paint = new SKPaint { Color = SKColors.Blue })
                 canvas.DrawRect(new SKRect(100, 0, 200, 100), paint);
 
-            var data = YoloPredictor.PrepareImage(bitmap);
+            var data = Yolo26ImagePreprocessor.PrepareImage(bitmap);
 
             Assert.Equal(1f, data[Index(0, 100, 320)], 2);
             Assert.Equal(0f, data[Index(2, 100, 320)], 2);
@@ -82,7 +82,7 @@ namespace ObjectDetection.Tests
             using (var paint = new SKPaint { Color = SKColors.Blue })
                 canvas.DrawRect(new SKRect(0, 100, 100, 200), paint);
 
-            var data = YoloPredictor.PrepareImage(bitmap);
+            var data = Yolo26ImagePreprocessor.PrepareImage(bitmap);
 
             Assert.Equal(1f, data[Index(1, 320, 100)], 2);
             Assert.Equal(0f, data[Index(2, 320, 100)], 2);
@@ -91,11 +91,21 @@ namespace ObjectDetection.Tests
         }
 
         [Fact]
+        public void ToInput_WrapsPreparedImageIntoModelInput()
+        {
+            using var bitmap = SolidBitmap(64, 64, new SKColor(255, 102, 0));
+
+            var input = Yolo26ImagePreprocessor.ToInput(bitmap);
+
+            Assert.Equal(Yolo26ImagePreprocessor.PrepareImage(bitmap), input.Image);
+        }
+
+        [Fact]
         public void PrepareImage_DoesNotChangeSourceBitmap()
         {
             using var bitmap = SolidBitmap(100, 50, SKColors.Red);
 
-            YoloPredictor.PrepareImage(bitmap);
+            Yolo26ImagePreprocessor.PrepareImage(bitmap);
 
             Assert.Equal(100, bitmap.Width);
             Assert.Equal(50, bitmap.Height);
