@@ -4,17 +4,8 @@ using Anthropic.Models.Beta.Messages;
 using SkiaSharp;
 using YOLO26.Shared.YOLOWorker.DataStructures;
 
-namespace FrameAnalysis.Llm
+namespace FrameAnalysis.Llm.Answerers.Claude
 {
-    public class ClaudeAnswererOptions
-    {
-        public string Model { get; set; } = "claude-opus-5-5";
-
-        public int MaxTokens { get; set; } = 16000;
-
-        public FramePromptOptions Prompt { get; set; } = new();
-    }
-
     /// <summary>
     /// Отвечает на вопросы по кадру через Claude API.
     /// Ключ берется из переменной окружения ANTHROPIC_API_KEY, если клиент не передан явно

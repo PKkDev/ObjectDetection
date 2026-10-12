@@ -2,6 +2,8 @@
 using System.Text;
 using System.Text.Json;
 using FrameAnalysis.Llm;
+using FrameAnalysis.Llm.Answerers;
+using FrameAnalysis.Llm.Answerers.Ollama;
 using SkiaSharp;
 using YOLO26.Shared.YOLOWorker.DataStructures;
 
@@ -98,7 +100,7 @@ namespace ObjectDetection.Tests
         public async Task AskAsync_SendsChatRequestWithSchemaAndImages()
         {
             var server = new FakeOllama(() => Ok(AnswerJson));
-            var options = new OllamaAnswererOptions { Model = "qwen2.5vl:7b", BaseAddress = new Uri("http://localhost:11434") };
+            var options = new OllamaAnswererOptions { Model = OllamaModel.Qwen25Vl_7b, BaseAddress = new Uri("http://localhost:11434") };
             var answerer = new OllamaFrameQuestionAnswerer(options, new HttpClient(server));
             using var frame = Frame();
 
@@ -159,7 +161,7 @@ namespace ObjectDetection.Tests
         public async Task AskAsync_ModelNotDownloaded_ThrowsBeforeAskingAndListsAvailableModels()
         {
             var server = new FakeOllama(() => Ok(AnswerJson), "gemma3:4b", "llava:latest");
-            var options = new OllamaAnswererOptions { Model = OllamaModels.Qwen25Vl_7b };
+            var options = new OllamaAnswererOptions { Model = OllamaModel.Qwen25Vl_7b };
             var answerer = new OllamaFrameQuestionAnswerer(options, new HttpClient(server));
             using var frame = Frame();
 
@@ -185,13 +187,19 @@ namespace ObjectDetection.Tests
             Assert.Equal(2, server.ChatRequests);
         }
 
-        [Fact]
-        public async Task EnsureModelAvailableAsync_ModelWithoutTag_MatchesLatest()
+        [Theory]
+        [InlineData(OllamaModel.Gemma3_4b, "gemma3:4b")]
+        [InlineData(OllamaModel.Qwen25Vl_7b, "qwen2.5vl:7b")]
+        public void ToModelName_ReturnsOllamaRegistryName(OllamaModel model, string expected)
         {
-            var server = new FakeOllama(() => Ok(AnswerJson), "llava:latest");
-            var answerer = new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = "llava" }, new HttpClient(server));
+            Assert.Equal(expected, model.ToModelName());
+        }
 
-            await answerer.EnsureModelAvailableAsync();
+        [Fact]
+        public void ToModelName_CoversEveryModel()
+        {
+            foreach (var model in Enum.GetValues<OllamaModel>())
+                Assert.False(string.IsNullOrWhiteSpace(model.ToModelName()));
         }
 
         [Fact]
