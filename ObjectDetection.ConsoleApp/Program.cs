@@ -12,16 +12,17 @@ using YOLO26.Shared.YOLOWorker.Parser;
 // Аргументы (оба необязательные): вопрос и путь к кадру
 
 // Переключатель LLM
-var llm = Llm.OllamaGemma3;
-//var llm = Llm.OllamaQwen25Vl;
+//var llm = Llm.OllamaGemma3; //gemma3:4b
+var llm = Llm.OllamaQwen25Vl; // qwen2.5vl:7b
 //var llm = Llm.Claude;
 
 // Тип вопроса:
 // false - вопрос про объекты: в LLM уходят кадр с пронумерованными рамками, фрагменты объектов и список детектора
 // true  - вопрос о сцене в целом: в LLM уходит только чистый кадр, результаты детектора не передаются
-var sceneQuestion = false;
+var sceneQuestion = true;
 
 var question = args.Length > 0 ? args[0] : "Сколько машин на кадре?";
+question = "Чем занимаются люда на этом кадре?";
 
 // модель - результат работы проекта YOLO26.Transformer (.zip), кадр по умолчанию берется оттуда же
 var transformerFolder = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../YOLO26.Transformer"));
