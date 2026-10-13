@@ -16,6 +16,11 @@ var llm = Llm.OllamaGemma3;
 //var llm = Llm.OllamaQwen25Vl;
 //var llm = Llm.Claude;
 
+// Тип вопроса:
+// false - вопрос про объекты: в LLM уходят кадр с пронумерованными рамками, фрагменты объектов и список детектора
+// true  - вопрос о сцене в целом: в LLM уходит только чистый кадр, результаты детектора не передаются
+var sceneQuestion = false;
+
 var question = args.Length > 0 ? args[0] : "Сколько машин на кадре?";
 
 // модель - результат работы проекта YOLO26.Transformer (.zip), кадр по умолчанию берется оттуда же
@@ -30,13 +35,16 @@ try
     if (!File.Exists(modelPath)) throw new FileNotFoundException($"Модель YOLO26 не найдена: {modelPath}. Сначала запустите проект YOLO26.Transformer - он ее сохраняет", modelPath);
     if (!File.Exists(imagePath)) throw new FileNotFoundException($"Кадр не найден: {imagePath}", imagePath);
 
+    var promptOptions = new FramePromptOptions { UseDetections = !sceneQuestion };
+
     IFrameQuestionAnswerer answerer = llm switch
     {
         // локальные модели в Ollama: бесплатно, кадр не покидает компьютер
-        Llm.OllamaGemma3 => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModel.Gemma3_4b }),
-        Llm.OllamaQwen25Vl => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModel.Qwen25Vl_7b }),
+        Llm.OllamaGemma3 => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModel.Gemma3_4b, Prompt = promptOptions }),
+        // qwen тратит на изображения в несколько раз больше токенов, чем gemma: в стандартные 8192 запрос не помещается
+        Llm.OllamaQwen25Vl => new OllamaFrameQuestionAnswerer(new OllamaAnswererOptions { Model = OllamaModel.Qwen25Vl_7b, ContextSize = 16384, Prompt = promptOptions }),
         // Claude API: вызов платный и отправляет кадр наружу; ключ - в переменной окружения ANTHROPIC_API_KEY
-        Llm.Claude => new ClaudeFrameQuestionAnswerer(),
+        Llm.Claude => new ClaudeFrameQuestionAnswerer(new ClaudeAnswererOptions { Prompt = promptOptions }),
         _ => throw new ArgumentOutOfRangeException(nameof(llm)),
     };
 
@@ -62,6 +70,7 @@ try
     var answer = await answerer.AskAsync(frame, detections, question);
 
     Console.WriteLine();
+    Console.WriteLine($"Запрос: {(sceneQuestion ? "только чистый кадр" : $"кадр с рамками и объекты с уверенностью от {promptOptions.MinScore:P0}")}");
     Console.WriteLine($"Вопрос: {question}");
     Console.WriteLine($"Ответ: {answer.Answer}");
     Console.WriteLine($"Можно ответить по кадру: {(answer.CanAnswer ? "да" : "нет")}, уверенность: {answer.Confidence}, объекты: {string.Join(", ", answer.ReferencedObjects)}");

@@ -199,6 +199,71 @@ namespace ObjectDetection.Tests
         }
 
         [Fact]
+        public void Build_DefaultMinScore_DropsDetectionsBelowHalf()
+        {
+            using var frame = Frame(800, 600);
+            var detections = new[]
+            {
+                Det("car", 0.5f, 200, 200, 400, 300),
+                Det("person", 0.49f, 10, 10, 60, 110),
+            };
+
+            var prompt = new FramePromptBuilder().Build(frame, detections, "?");
+
+            Assert.Contains("№1: car", prompt.Text);
+            Assert.DoesNotContain("person", prompt.Text);
+            Assert.Single(prompt.Crops);
+        }
+
+        [Fact]
+        public void Build_MinScore_DropsWeakDetectionsEverywhere()
+        {
+            using var frame = Frame(800, 600);
+            var detections = new[]
+            {
+                Det("car", 0.9f, 200, 200, 400, 300),
+                Det("person", 0.4f, 10, 10, 60, 110),
+            };
+
+            var prompt = new FramePromptBuilder(new FramePromptOptions { MinScore = 0.5f }).Build(frame, detections, "?");
+
+            Assert.Contains("№1: car", prompt.Text);
+            Assert.DoesNotContain("person", prompt.Text);
+            Assert.DoesNotContain("№2", prompt.Text);
+            Assert.Equal([1], prompt.Crops.Select(c => c.Number));
+        }
+
+        [Fact]
+        public void Build_MinScore_AllDetectionsBelow_ReportsNothingFound()
+        {
+            using var frame = Frame(800, 600);
+            var detections = new[] { Det("person", 0.4f, 10, 10, 60, 110) };
+
+            var prompt = new FramePromptBuilder(new FramePromptOptions { MinScore = 0.5f }).Build(frame, detections, "?");
+
+            Assert.Empty(prompt.Crops);
+            Assert.Contains("ничего не нашел", prompt.Text);
+        }
+
+        [Fact]
+        public void Build_UseDetectionsOff_SendsOnlyCleanFrameAndQuestion()
+        {
+            using var frame = Frame(400, 400, SKColors.Gray);
+            var detections = new[] { Det("car", 0.9f, 100, 100, 300, 300) };
+
+            var prompt = new FramePromptBuilder(new FramePromptOptions { UseDetections = false, JpegQuality = 100 }).Build(frame, detections, "Что на кадре?");
+
+            using var sentFrame = Decode(prompt.FrameJpeg);
+            var onBox = sentFrame.GetPixel(200, 100);
+            Assert.InRange(onBox.Green, 118, 138);
+
+            Assert.Empty(prompt.Crops);
+            Assert.DoesNotContain("Детектор", prompt.Text);
+            Assert.DoesNotContain("car", prompt.Text);
+            Assert.EndsWith("Вопрос: Что на кадре?", prompt.Text);
+        }
+
+        [Fact]
         public void Build_DoesNotChangeSourceFrame()
         {
             using var frame = Frame(400, 400, SKColors.Gray);

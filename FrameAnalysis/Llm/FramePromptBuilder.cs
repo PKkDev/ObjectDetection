@@ -23,6 +23,18 @@ namespace FrameAnalysis.Llm
         public float CropPadding { get; set; } = 0.15f;
 
         public int JpegQuality { get; set; } = 85;
+
+        /// <summary>
+        /// Объекты с уверенностью ниже порога в запрос не попадают: не рисуются, не перечисляются, не вырезаются.
+        /// Слабые детекции вредят: модель пересказывает их как факт (например, кусты, принятые детектором за людей)
+        /// </summary>
+        public float MinScore { get; set; } = 0.5f;
+
+        /// <summary>
+        /// Передавать ли результаты детектора вообще. false - в запросе только чистый кадр и вопрос.
+        /// Подходит для вопросов о сцене в целом; для вопросов про конкретный объект ("машина №3") нужен true
+        /// </summary>
+        public bool UseDetections { get; set; } = true;
     }
 
     /// <summary>
@@ -57,10 +69,16 @@ namespace FrameAnalysis.Llm
 
         public FramePrompt Build(SKBitmap frame, IReadOnlyList<YOLO26Result> detections, string question)
         {
-            // номера объектов: №1 - самый уверенный
-            var numbered = detections.OrderByDescending(d => d.Score).ToList();
+            if (!_options.UseDetections)
+                return new FramePrompt(RenderFrame(frame, []), [], $"Кадр с камеры, {frame.Width}x{frame.Height} пикселей.\n\nВопрос: {question}");
 
-            var frameJpeg = RenderAnnotatedFrame(frame, numbered);
+            // номера объектов: №1 - самый уверенный
+            var numbered = detections
+                .Where(d => d.Score >= _options.MinScore)
+                .OrderByDescending(d => d.Score)
+                .ToList();
+
+            var frameJpeg = RenderFrame(frame, numbered);
 
             var crops = new List<FrameCrop>();
             for (int i = 0; i < numbered.Count && crops.Count < _options.MaxCrops; i++)
@@ -102,7 +120,10 @@ namespace FrameAnalysis.Llm
             return sb.ToString();
         }
 
-        private byte[] RenderAnnotatedFrame(SKBitmap frame, List<YOLO26Result> numbered)
+        /// <summary>
+        /// Кадр целиком, уменьшенный до допустимого размера; на нем рисуются рамки с номерами переданных объектов
+        /// </summary>
+        private byte[] RenderFrame(SKBitmap frame, List<YOLO26Result> numbered)
         {
             float scale = Math.Min(1f, _options.MaxImageSide / (float)Math.Max(frame.Width, frame.Height));
             int width = Math.Max(1, (int)Math.Round(frame.Width * scale));
